@@ -1,0 +1,24 @@
+@charset "UTF-8";
+
+html,
+body {
+  height: 100%;
+}
+
+.container,
+.sections,
+.section {
+  position: relative;
+  height: 100%;
+}
+
+.container {}
+
+.section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  font-size: 15em;
+  line-height: 100%;
+}
