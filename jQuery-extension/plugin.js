@@ -1,37 +1,37 @@
 (function ($) {
-  var Plugin = (function () {
-    function Plugin(element, options) {
-      this.settings = $.extend(true, $.fn.Plugin.defaults, options || {});
+  var PluginName = (function () {
+    function PluginName(element, options) {
+      this.settings = $.extend(true, $.fn.PluginName.defaults, options || {});
       this.element = element;
       this.init();
     }
 
-    Plugin.prototype = {
+    PluginName.prototype = {
       init: function () {
 
       }
     }
-    return Plugin;
+    return PluginName;
   })()
 
-  $.fn.Plugin = function (options) {
+  $.fn.PluginName = function (options) {
     // this 一般是一个jQuery类型的集合
     return this.each(function () {
       var __self = $(this);
-      var instance = __self.data('Plugin');
+      var instance = __self.data('PluginName');
       // 单例模式
       if (!instance) {
-        instance = new Plugin(__self, options);
-        __self.data('Plugin', instance);
+        instance = new PluginName(__self, options);
+        __self.data('PluginName', instance);
       }
       if ($.type(options) === 'string') return instance[options]();
-      // $('div').Plugin('init');
+      // $('div').PluginName('init');
     })
   }
-  $.fn.Plugin.defaults = {
+  $.fn.PluginName.defaults = {
     // 默认配置
     callback: ''
   }
 })(jQuery)
 
-// $('.container').Plugin('init');
+// $('.container').PluginName('init');
