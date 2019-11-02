@@ -6,12 +6,28 @@
     "default_title": "去除小广告",
     "default_popup": "popup.html"
   },
-  "content_scripts": [ {
-    "css": ["css/ad.css"],
-    "js": [ "js/background.js" ],
-    "matches": [ "https://www.seedmm.work/*", "https://www.dmmbus.work/*", "https://www.cdnbus.work/*", "https://www.busdmm.work/*", "https://www.dmmsee.bid/*" ],
-    "all_frames": true
-  } ],
+  "content_scripts": [
+    {
+      "css": [
+        "css/ad.css"
+      ],
+      "js": [
+        "js/background.js"
+      ],
+      "matches": [
+        "https://www.seedmm.work/*",
+        "https://www.dmmbus.work/*",
+        "https://www.cdnbus.work/*",
+        "https://www.busdmm.work/*",
+        "https://www.dmmsee.bid/*",
+        "https://www.javbus.cc/*",
+        "https://www.javbus.com/*",
+        "https://www.javbus.org/*",
+        "https://www.javbus.co/*"
+      ],
+      "all_frames": true
+    }
+  ],
   "description": "去除小广告",
   "icons": {
     "128": "image/av128.png",
@@ -19,6 +35,18 @@
     "48": "image/av48.png"
   },
   "manifest_version": 2,
-  "permissions": [ "https://www.seedmm.work/*", "https://www.dmmbus.work/*", "https://www.cdnbus.work/*", "https://www.busdmm.work/*", "https://www.dmmsee.bid/*" ],
-  "web_accessible_resources": [ "image/*" ]
+  "permissions": [
+    "https://www.seedmm.work/*",
+    "https://www.dmmbus.work/*",
+    "https://www.cdnbus.work/*",
+    "https://www.busdmm.work/*",
+    "https://www.dmmsee.bid/*",
+    "https://www.javbus.cc/*",
+    "https://www.javbus.com/*",
+    "https://www.javbus.org/*",
+    "https://www.javbus.co/*"
+  ],
+  "web_accessible_resources": [
+    "image/*"
+  ]
 }
