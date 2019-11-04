@@ -1,0 +1,85 @@
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: Avenir, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: #2c3e50;
+  background-color: #F3F6F8;
+}
+
+a {
+  text-decoration: none;
+}
+
+.app {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: baseline;
+  background: #fff;
+  padding: 15px;
+}
+
+.item {
+  flex-basis: 15%;
+  margin: 10px;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #e4ecf3;
+  box-shadow: 1px 2px 3px #f2f6f8;
+  background: #fff;
+  transition: all .3s;
+}
+
+.item:hover {
+  -webkit-transform: translateY(-5px);
+  transform: translateY(-5px);
+}
+
+.item .logo {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  font-weight: 700;
+  font-size: 14px;
+  color: #3273dc;
+}
+
+.item .logo .el-image {
+  width: 35px;
+  height: 35px;
+  border-radius: 50%;
+  overflow: hidden;
+  margin-right: 5px;
+}
+
+.item .logo .el-image img {
+  width: 100%;
+  height: 100%;
+}
+
+.item .desc {
+  height: 35px;
+  padding-top: 10px;
+  color: grey;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
