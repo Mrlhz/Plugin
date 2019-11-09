@@ -1,9 +1,9 @@
 {
-  "name": "去除小广告",
+  "name": "MyToolBox",
   "version": "1.0.0",
   "browser_action": {
-    "default_icon": "image/av48.png",
-    "default_title": "去除小广告",
+    "default_icon": "image/dentifying code48.png",
+    "default_title": "my toolbox",
     "default_popup": "popup.html"
   },
   "content_scripts": [
@@ -28,14 +28,17 @@
       "all_frames": true
     }
   ],
-  "description": "去除小广告",
+  "description": "个人小工具",
   "icons": {
-    "128": "image/av128.png",
-    "16": "image/av16.png",
-    "48": "image/av48.png"
+    "128": "image/dentifying code128.png",
+    "48": "image/dentifying code48.png",
+    "16": "image/dentifying code16.png"
   },
   "manifest_version": 2,
   "permissions": [
+    "bookmarks",
+    "http://*/*",
+    "https://*/*",
     "https://www.seedmm.work/*",
     "https://www.dmmbus.work/*",
     "https://www.cdnbus.work/*",
@@ -52,5 +55,5 @@
   "chrome_url_overrides": {
     "newtab": "newtab.html"
   },
-  "homepage_url": "https://github.com/Mrlhz/Plugin/tree/master/chrome-extension/remove-ads"
+  "homepage_url": "https://github.com/Mrlhz/Plugin/tree/master/chrome-extension/mytoolbox"
 }
