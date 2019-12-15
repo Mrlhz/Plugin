@@ -15,6 +15,9 @@
         "js/background.js"
       ],
       "matches": [
+        "http://*/*",
+        "https://*/*",
+        "https://以下是用来凑数的.com/",
         "https://www.seedmm.work/*",
         "https://www.dmmbus.work/*",
         "https://www.cdnbus.work/*",
@@ -23,7 +26,10 @@
         "https://www.javbus.cc/*",
         "https://www.javbus.com/*",
         "https://www.javbus.org/*",
-        "https://www.javbus.co/*"
+        "https://www.javbus.co/*",
+        "https://www.cdnbus.icu/*",
+        "https://www.busjav.work/*",
+        "https://u3c3.com/*"
       ],
       "all_frames": true
     }
@@ -36,18 +42,7 @@
   },
   "manifest_version": 2,
   "permissions": [
-    "bookmarks",
-    "http://*/*",
-    "https://*/*",
-    "https://www.seedmm.work/*",
-    "https://www.dmmbus.work/*",
-    "https://www.cdnbus.work/*",
-    "https://www.busdmm.work/*",
-    "https://www.dmmsee.bid/*",
-    "https://www.javbus.cc/*",
-    "https://www.javbus.com/*",
-    "https://www.javbus.org/*",
-    "https://www.javbus.co/*"
+    "bookmarks"
   ],
   "web_accessible_resources": [
     "image/*"

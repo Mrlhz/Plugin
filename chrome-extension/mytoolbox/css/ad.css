@@ -1,3 +1,7 @@
-.ad-table {
+/* u3c3.com@yahoo.com */
+div[class*=ADTOPLB_],
+/* javbus */
+.ad-table,
+.ad-list {
   display: none !important;
 }

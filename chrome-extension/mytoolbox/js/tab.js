@@ -1,6 +1,6 @@
 const data = [{
     url: "https://github.com/",
-    img: "https://github.com/favicon.ico",
+    img: "../image/github.ico",
     title: "GitHub",
     desc: "一个面向开源及私有软件项目的托管平台",
     type: "［前端］代码托管"
@@ -21,63 +21,63 @@ const data = [{
   },
   {
     url: "https://developer.mozilla.org/zh-CN/",
-    img: "https://developer.mozilla.org/static/img/favicon32.7f3da72dcea1.png",
+    img: "../image/mdn.png",
     title: "MDN Web 文档",
     desc: "提供开放网络技术有关的信息",
     type: ""
   },
   {
     url: "https://developer.mozilla.org/zh-CN/docs/Web/JavaScript",
-    img: "https://developer.mozilla.org/static/img/favicon32.7f3da72dcea1.png",
+    img: "../image/mdn.png",
     title: "JavaScript",
     desc: "Web 开发技术JavaScript",
     type: ""
   },
   {
     url: "https://leetcode-cn.com/",
-    img: "https://assets.leetcode.com/static_assets/public/icons/favicon.ico",
+    img: "../image/leetcode.ico",
     title: "LeetCode",
     desc: "全球极客挚爱的技术成长平台",
     type: ""
   },
   {
     url: "https://regexper.com/",
-    img: "https://regexper.com/favicon.ico",
+    img: "../image/regexper.ico",
     title: "Regexper",
     desc: "正则表达式的可视化开源工具",
     type: ""
   },
   {
     url: "https://yiyibooks.cn/",
-    img: "https://yiyibooks.cn/favicon.ico",
+    img: "../image/yiyibooks.ico",
     title: "一译",
     desc: "在线技术文档协作翻译网",
     type: ""
   },
   {
     url: "http://nodejs.cn/",
-    img: "https://nodejs.org/static/images/favicons/favicon.ico",
+    img: "../image/node.png",
     title: "Node.js",
     desc: "Node.js 中文网",
     type: ""
   },
   {
     url: "https://www.html.cn/doc/jsdoc/index.html",
-    img: "https://www.html.cn/favicon.ico",
+    img: "../image/jsdoc_html.ico",
     title: "JSDoc",
     desc: "JSDoc 在线学习参考手册文档",
     type: ""
   },
   {
     url: "https://translate.google.cn/",
-    img: "https://translate.google.cn/favicon.ico",
+    img: "../image/translate.google.cn_favicon.ico",
     title: "Google翻译",
     desc: "Google 的免费翻译服务",
     type: ""
   },
   {
     url: "https://fanyi.baidu.com/",
-    img: "https://fanyi.baidu.com/favicon.ico",
+    img: "../image/fanyi.baidu.ico",
     title: "百度翻译",
     desc: "百度提供的翻译服务",
     type: ""
@@ -98,14 +98,14 @@ const data = [{
   },
   {
     url: "https://www.runoob.com/",
-    img: "https://www.runoob.com/favicon.ico",
+    img: "../image/runoob.ico",
     title: "菜鸟教程",
     desc: "学的不仅是技术,更是梦想",
     type: ""
   },
   {
     url: "https://docschina.org/",
-    img: "https://docschina.org/favicon.ico",
+    img: "../image/docschina.ico",
     title: "印记中文",
     desc: "Web 前端开发人员提供优质文档",
     type: ""
@@ -119,32 +119,53 @@ const data = [{
   },
   {
     url: "https://www.bilibili.com/",
-    img: "https://www.bilibili.com/favicon.ico",
+    img: "../image/bilibili.ico",
     title: "bilibili",
     desc: "国内领先的年轻人文化社区",
     type: ""
   },
   {
     url: "https://stackoverflow.com/",
-    img: "https://stackoverflow.com/favicon.ico",
+    img: "../image/stackoverflow.ico",
     title: "Stackoverflow",
     desc: "全球专业的程序员IT技术问答社区",
     type: ""
   },
   {
-    url: "",
-    img: "",
-    title: "",
-    desc: "",
+    url: "http://es6.ruanyifeng.com/",
+    img: "../image/es6.ico",
+    title: "ECMAScript 6 入门",
+    desc: "开源的 JavaScript 语言教程",
     type: ""
   },
   {
-    url: "",
-    img: "",
-    title: "",
-    desc: "",
+    url: "https://www.runoob.com/jsref/jsref-obj-regexp.html",
+    img: "../image/runoob.ico",
+    title: "JavaScript RegExp 对象",
+    desc: "JavaScript RegExp 对象",
     type: ""
-  }
+  },
+  {
+    url: "https://babeljs.io/repl",
+    img: "../image/babel.png",
+    title: "babeljs",
+    desc: "下一代 JavaScript 语法的编译器",
+    type: ""
+  },
+  {
+    url: "https://developer.mozilla.org/zh-CN/docs/Web/CSS/Reference",
+    img: "../image/mdn.png",
+    title: "CSS 参考",
+    desc: "CSS 参考页面以浏览按 字母索引",
+    type: ""
+  },
+  // {
+  //   url: "",
+  //   img: "",
+  //   title: "",
+  //   desc: "",
+  //   type: ""
+  // }
 ]
 
 chrome.bookmarks.getTree(function(bookmarkArray){
