@@ -159,6 +159,41 @@ const data = [{
     desc: "CSS 参考页面以浏览按 字母索引",
     type: ""
   },
+  {
+    url: "https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/RegExp",
+    img: "../image/mdn.png",
+    title: "RegExp",
+    desc: "JavaScript 标准内置对象 - RegExp",
+    type: ""
+  },
+  {
+    url: "http://eslint.cn/",
+    img: "../image/eslint.png",
+    title: "ESLint",
+    desc: "可组装的JavaScript和JSX检查工具",
+    type: ""
+  },
+  {
+    url: "https://editorconfig.org/",
+    img: "../image/EditorConfig.png",
+    title: "EditorConfig",
+    desc: "为在不同编辑器和ide中处理同一项目的多个开发人员维护一致的编码样式",
+    type: ""
+  },
+  {
+    url: "https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Status",
+    img: "../image/mdn.png",
+    title: "Status",
+    desc: "HTTP 响应代码",
+    type: ""
+  },
+  {
+    url: "https://jestjs.io/docs/zh-Hans",
+    img: "../image/jestjs.ico",
+    title: "jestjs",
+    desc: "Delightful JavaScript Testing",
+    type: ""
+  }
   // {
   //   url: "",
   //   img: "",
