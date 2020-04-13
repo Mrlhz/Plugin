@@ -193,6 +193,13 @@ const data = [{
     title: "jestjs",
     desc: "Delightful JavaScript Testing",
     type: ""
+  },
+  {
+    url: "https://www.npmjs.cn/",
+    img: "../image/npmjs.png",
+    title: "npm 中文文档",
+    desc: "npm 中文文档",
+    type: ""
   }
   // {
   //   url: "",
