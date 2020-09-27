@@ -200,7 +200,35 @@ const data = [{
     title: "npm 中文文档",
     desc: "npm 中文文档",
     type: ""
+  },
+  {
+    url: "https://cn.vuejs.org/v2/guide/index.html",
+    img: "../image/vue-32x32.png",
+    title: " Vue.js",
+    desc: "一套用于构建用户界面的渐进式框架",
+    type: ""
+  },
+  {
+    url: "https://vue-js.com/learn-vue/",
+    img: "../image/vue-32x32.png",
+    title: "逐行剖析 Vue.js 源码",
+    desc: "Vue源码系列-Vue中文社区",
+    type: ""
   }
+  // {
+  //   url: "",
+  //   img: "",
+  //   title: "",
+  //   desc: "",
+  //   type: ""
+  // }
+  // {
+  //   url: "",
+  //   img: "",
+  //   title: "",
+  //   desc: "",
+  //   type: ""
+  // }
   // {
   //   url: "",
   //   img: "",
@@ -210,13 +238,14 @@ const data = [{
   // }
 ]
 
-chrome.bookmarks.getTree(function(bookmarkArray){
+chrome.bookmarks.getTree(function (bookmarkArray) {
   // console.log(bookmarkArray);
   // console.log(main(bookmarkArray))
 });
 
 function main(arr) {
   const res = []
+
   function dfs(arr) {
     const temp = []
     for (const node of arr) {
@@ -227,7 +256,7 @@ function main(arr) {
   }
 
   dfs(arr)
-  
+
   const d = res.map((item) => {
     return {
       title: item.title,
