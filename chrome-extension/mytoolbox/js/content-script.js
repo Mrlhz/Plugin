@@ -8,11 +8,16 @@ document.addEventListener('DOMContentLoaded', function () {
     console.log(magnetContent, magnet)
     sendMessage(magnet)
   }
+  const contentTable = document.querySelector('.firstpost .t_msgfontfix')
+  console.log(contentTable)
+  if (contentTable) {
+    sendMessage({ message: 'contentTable', data: contentTable.innerHTML })
+  }
 })
 
 
 function sendMessage(data) {
-  chrome.runtime.sendMessage({ greeting: '获取磁力链接', data }, function (response) {
+  chrome.runtime.sendMessage(data, function (response) {
     console.log('收到来自后台的回复：', response)
   })
 }
