@@ -5,3 +5,13 @@ div[class*=ADTOPLB_],
 .ad-list {
   display: none !important;
 }
+
+
+#ad_text {
+  display: none !important;
+}
+
+/* 91论坛 */
+.cont6 {
+  display: none !important;
+}
