@@ -6,12 +6,20 @@ div[class*=ADTOPLB_],
   display: none !important;
 }
 
-
+.ad-box,
 #ad_text {
   display: none !important;
 }
 
 /* 91论坛 */
 .cont6 {
+  display: none !important;
+}
+
+/* https://www.80s.tw/ */
+#ad-bigbanner,
+#HMcoupletDivleft,
+#HMcoupletDivright,
+#HMRichBox {
   display: none !important;
 }
