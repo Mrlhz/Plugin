@@ -209,6 +209,13 @@ const data = [{
     type: ""
   },
   {
+    url: "https://v3.cn.vuejs.org/guide/introduction.html",
+    img: "../image/vue-32x32.png",
+    title: "Vue.js 3.0",
+    desc: "一套用于构建用户界面的渐进式框架",
+    type: ""
+  },
+  {
     url: "https://vue-js.com/learn-vue/",
     img: "../image/vue-32x32.png",
     title: "逐行剖析 Vue.js 源码",
