@@ -20,6 +20,16 @@ chrome.contextMenus.onClicked.addListener(function (info, tab) {
 
 const download = chrome.downloads.download
 
+function filterOptions(option = {}) {
+  const check = ['conflictAction', 'filename', 'headers', 'method', 'saveAs', 'url']
+  const keys = Object.keys(option).filter(key => check.includes(key))
+  const result = keys.reduce((acc, cur) => {
+    acc[cur] = option[cur]
+    return acc
+  }, {})
+  return result
+}
+
 function onCall(results = []) {
   const result = results[0]
   if (!Array.isArray(result) || !result.length) {
@@ -27,6 +37,6 @@ function onCall(results = []) {
   }
   console.log(results)
   const commonConfig = { conflictAction: 'uniquify', saveAs: false }
-  const downloadTask = result.map(item => download({ ...commonConfig, ...item }))
+  const downloadTask = result.map(item => download(filterOptions({ ...commonConfig, ...item })))
   console.log(downloadTask)
 }
