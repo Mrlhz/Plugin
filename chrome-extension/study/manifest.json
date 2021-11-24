@@ -10,6 +10,12 @@
     "activeTab",
     "contextMenus",
     "downloads",
-    "scripting"
-  ]
+    "scripting",
+    "tabs"
+  ],
+  "icons": {
+    "16": "images/icon-large.png",
+    "48": "images/icon-small.png",
+    "128": "images/icon-large.png"
+  }
 }
