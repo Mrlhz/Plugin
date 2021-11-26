@@ -13,6 +13,9 @@
     "scripting",
     "tabs"
   ],
+  "host_permissions": [
+    "*://*/*"
+  ],
   "icons": {
     "16": "images/icon-large.png",
     "48": "images/icon-small.png",
