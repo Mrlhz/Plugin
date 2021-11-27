@@ -27,9 +27,12 @@ export function getWellList() {
   })
 }
 
-export function getHdLink() {
+export function getHdLink(...args) {
+  console.log(arguments, args, this)
   try {
-    const [hdLink] = [...document.querySelector('#videodetails-content').querySelectorAll('a')].filter(item => {
+    const videodetails = document.querySelector('#videodetails-content')
+    if (!videodetails) { return }
+    const [hdLink] = [...videodetails.querySelectorAll('a')].filter(item => {
       return item && item.innerText && item.innerText.includes('高清')
     })
     if (hdLink) {
