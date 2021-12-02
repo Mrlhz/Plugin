@@ -2,13 +2,13 @@
 export function executeScript(tab, func, params = ['task']) {
   return new Promise(resolve => {
     chrome.scripting.executeScript({ target: { tabId: tab.id }, func: func, args: params }, (...args) => {
-      console.log('args')
+      console.log('args', args)
       resolve(...args)
     })
   })
 }
 
-export const wait = (delay) => new Promise(resolve => { setTimeout(resolve, delay) })
+export const wait = (delay = 0) => new Promise(resolve => { setTimeout(resolve, delay) })
 
 export async function getCurrentTab() {
   let queryOptions = { active: true, currentWindow: true }

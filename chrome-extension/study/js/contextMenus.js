@@ -3,7 +3,7 @@
  */
 
 import { executeScript, getCurrentTab, getAllWindow, wait } from './helper.js'
-import { getHtml, getWellList, getHdLink } from '../config.js'
+import { getHtml, getWellList, getHdLink, pages, setTitle } from './dom.js'
 
 export default function menuInit() {
   const menus = [
@@ -21,6 +21,16 @@ export default function menuInit() {
       'id': 'downloadAll',
       'type': 'normal',
       'title': 'download all',
+    },
+    {
+      'id': 'openView',
+      'type': 'normal',
+      'title': 'open view',
+    },
+    {
+      'id': 'downloadPage',
+      'type': 'normal',
+      'title': 'adownload page',
     }
   ];
   menus.forEach(menu => {
@@ -40,14 +50,17 @@ chrome.contextMenus.onClicked.addListener(async function (info, tab) {
     await newTabs(tab, allTabUrls)
   } else if (info.menuItemId === 'downloadAll') {
     await downloadAllTabVideo({ allTabs })
+  } else if (info.menuItemId === 'openView') {
+    await create91PageTabs(tab, allTabUrls)
+  } else if (info.menuItemId === 'downloadPage') {
+    await downloadPage({ currentTab: tab })
   }
 })
 
 async function downloadVideo() {
   // todo 应该先执行getHdLink， 再执行getHtml
   const tab = await getCurrentTab()
-  const h = await executeScript(tab, getHdLink, [tab])
-  console.log(h, tab)
+  await executeScript(tab, getHdLink, [tab])
   await wait(1200)
   const res = await executeScript(tab, getHtml)
   console.log(res)
@@ -73,7 +86,7 @@ async function newTabs(currentTab, allTabUrls) {
   const [{ frameId, result }] = await executeScript(currentTab, getWellList)
   console.log(result)
   const task = result
-    .filter(item => !allTabUrls.includes(item.href))
+    .filter(item => !allTabUrls.includes(item.href)) // TODO href、url统一
     .map(item => chrome.tabs.create({ url: item.href }))
   const response = await Promise.all(task)
   // const hd = await Promise.all(response.map(item => executeScript(item, getHdLink)))
@@ -88,4 +101,27 @@ async function onDownload([ { result } ] = [{}]) {
   const { downloadLink, title, time, author } = result
   const res = await chrome.downloads.download({ url: downloadLink, filename: `91/[${author}]-${title}-${time}.mp4` })
   console.log(res)
+}
+
+async function create91PageTabs(currentTab, allTabUrls) {
+  const [{ frameId, result }] = await executeScript(currentTab, pages)
+  console.log(result)
+  const task = result
+    .filter(item => !allTabUrls.includes(item.url))
+    .map(item => chrome.tabs.create({ url: item.url }))
+  const response = await Promise.all(task)
+  // const hd = await Promise.all(response.map(item => executeScript(item, getHdLink)))
+  console.log(response)
+}
+
+async function downloadPage({ currentTab }) {
+  // todo 应该先执行getHdLink， 再执行getHtml
+  const allTabs = await getAllWindow()
+  const targetTabs = allTabs.filter(tab => tab.url && tab.url.includes('viewthread.php'))
+
+  const tabTask = targetTabs.map(tab => executeScript(tab, setTitle, [{}]))
+  await Promise.all(tabTask)
+  const [{ frameId, result }] = await executeScript(currentTab, pages)
+  console.log(result)
+  // await chrome.downloads.download({ url: result[0].url, filename: result[0].save})
 }
