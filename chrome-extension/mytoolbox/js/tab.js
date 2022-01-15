@@ -221,14 +221,14 @@ const data = [{
     title: "逐行剖析 Vue.js 源码",
     desc: "Vue源码系列-Vue中文社区",
     type: ""
+  },
+  {
+    url: "https://juejin.cn/",
+    img: "../image/juejin_favicon-32x32.png",
+    title: "掘金",
+    desc: "掘金 - 代码不止，掘金不停",
+    type: ""
   }
-  // {
-  //   url: "",
-  //   img: "",
-  //   title: "",
-  //   desc: "",
-  //   type: ""
-  // }
   // {
   //   url: "",
   //   img: "",
