@@ -2,8 +2,8 @@
  * @description 创建右键菜单
  */
 
-import { executeScript, getCurrentTab, getAllWindow, wait } from './helper.js'
-import { getHtml, getWellList, getHdLink, pages, setTitle } from './dom.js'
+import { executeScript, getCurrentTab, getAllWindow, wait, pathParse } from './helper.js'
+import { getHtml, getWellList, getHdLink, pages, setTitle, getAvatarList } from './dom.js'
 
 export default function menuInit() {
   const menus = [
@@ -30,7 +30,12 @@ export default function menuInit() {
     {
       'id': 'downloadPage',
       'type': 'normal',
-      'title': 'adownload page',
+      'title': 'download page',
+    },
+    {
+      'id': 'downloadStarAvatar',
+      'type': 'normal',
+      'title': 'download Star Avatar',
     }
   ];
   menus.forEach(menu => {
@@ -54,6 +59,8 @@ chrome.contextMenus.onClicked.addListener(async function (info, tab) {
     await create91PageTabs(tab, allTabUrls)
   } else if (info.menuItemId === 'downloadPage') {
     await downloadPage({ currentTab: tab })
+  } else if (info.menuItemId === 'downloadStarAvatar'){
+    await downloadStarAvatarList({ currentTab: tab })
   }
 })
 
@@ -124,4 +131,21 @@ async function downloadPage({ currentTab }) {
   const [{ frameId, result }] = await executeScript(currentTab, pages)
   console.log(result)
   // await chrome.downloads.download({ url: result[0].url, filename: result[0].save})
+}
+
+async function downloadStarAvatarList({ currentTab }) {
+  const [{ frameId, result = [] }] = await executeScript(currentTab, getAvatarList, [])
+  console.log(result)
+  const filePath = 'avatar'
+  const tasks = result.map(item => {
+    const { avatar, name } = item
+    const { ext } = pathParse(avatar.url)
+    const file = `${name}${ext}`
+    const filename = `${filePath}/${file}`
+    return chrome.downloads.download({ url: avatar.url, filename }).then(downloadId => {
+      return { file, ...item, downloadId }
+    })
+  })
+  const res = await Promise.all(tasks)
+  console.log(res)
 }

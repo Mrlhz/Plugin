@@ -3,7 +3,7 @@
  * @export
  * @returns {Object} 视频名称、下载链接、作者、发布时间
  */
-export function getHtml() {
+ export function getHtml() {
   console.log(arguments)
   let title = document.querySelector('#videodetails.videodetails-yakov .login_register_header')
   let time = document.querySelector('#videodetails-content .title-yakov')
@@ -75,22 +75,47 @@ export function pages() {
 
 export function setTitle({}) {
   try {
-    function GetQueryString(name) {  
-          var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)", "i");  
-          var r = window.location.search.substr(1).match(reg);  //获取url中"?"符后的字符串并正则匹配
-          var context = "";  
-          if (r != null)  
-               context = r[2];  
-          reg = null;  
-          r = null;  
-          return context == null || context == "" || context == "undefined" ? "" : context;  
-      }
-      const page = GetQueryString('page')
-      if (!/^\d+-/.test(document.title)) {
-        document.title = `${page}-${document.title}`
-      }
+    function GetQueryString(name) {
+      var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)", "i");  
+      var r = window.location.search.substr(1).match(reg);  //获取url中"?"符后的字符串并正则匹配
+      var context = ""
+      if (r != null)
+      context = r[2]
+      reg = null
+      r = null
+      return context == null || context == "" || context == "undefined" ? "" : context;  
+    }
+    const page = GetQueryString('page')
+    if (!/^\d+-/.test(document.title)) {
+      document.title = `${page}-${document.title}`
+    }
   } catch (e) {
     console.log(e)
     return
   }
+}
+
+/**
+ * @description 收藏的演员
+ *
+ * @returns []
+ */
+export function getAvatarList() {
+  return [...document.querySelectorAll('.avatar-box')]
+    .map(item => {
+      const photoFrame = item.querySelector('.photo-frame img')
+      const src = photoFrame.getAttribute('src')
+      const name = photoFrame.getAttribute('title')
+      const type = item.querySelector('.photo-info .mleft .btn').innerText
+      const href = item.getAttribute('href')
+      return {
+        name,
+        type,
+        href,
+        avatar: {
+          name,
+          url: src.includes('http') ? src : location.origin + src
+        }
+      }
+    })
 }
