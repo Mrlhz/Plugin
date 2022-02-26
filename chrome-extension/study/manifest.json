@@ -7,6 +7,12 @@
     "service_worker": "background.js",
     "type": "module"
   },
+  "content_scripts": [{
+    "js" : ["lib/axios.min.js"],
+    "matches": [
+      "*://localhost/*"
+    ]
+  }],
   "permissions": [
     "activeTab",
     "contextMenus",
@@ -21,5 +27,14 @@
     "16": "images/icon-large.png",
     "48": "images/icon-small.png",
     "128": "images/icon-large.png"
+  },
+  "action": {
+    "default_icon": {
+      "16": "images/icon-large.png",
+      "24": "images/icon-large.png",
+      "32": "images/icon-large.png"
+    },
+    "default_title": "Extension",
+    "default_popup": "popup.html"
   }
 }
