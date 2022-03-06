@@ -3,7 +3,7 @@
  */
 
 import { executeScript, getCurrentTab, getAllWindow, wait, pathParse } from './helper.js'
-import { getHtml, getWellList, getHdLink, pages, setTitle, getAvatarList } from './dom.js'
+import { getVideoDetailsHtml, getWellList, getHdLink, pages, setTitle, getAvatarList, getMovieDetail } from './dom.js'
 
 export default function menuInit() {
   const menus = [
@@ -36,6 +36,11 @@ export default function menuInit() {
       'id': 'downloadStarAvatar',
       'type': 'normal',
       'title': 'download Star Avatar',
+    },
+    {
+      'id': 'downloadMovieImage',
+      'type': 'normal',
+      'title': 'download Movie Image',
     }
   ];
   menus.forEach(menu => {
@@ -61,15 +66,17 @@ chrome.contextMenus.onClicked.addListener(async function (info, tab) {
     await downloadPage({ currentTab: tab })
   } else if (info.menuItemId === 'downloadStarAvatar'){
     await downloadStarAvatarList({ currentTab: tab })
+  } else if (info.menuItemId === 'downloadMovieImage'){
+    await downloadMovieImageList({ currentTab: tab })
   }
 })
 
 async function downloadVideo() {
-  // todo 应该先执行getHdLink， 再执行getHtml
+  // todo 应该先执行getHdLink， 再执行getVideoDetailsHtml
   const tab = await getCurrentTab()
   await executeScript(tab, getHdLink, [tab])
   await wait(1200)
-  const res = await executeScript(tab, getHtml)
+  const res = await executeScript(tab, getVideoDetailsHtml)
   console.log(res)
   await onDownload(res)
 }
@@ -82,7 +89,7 @@ async function downloadAllTabVideo({ allTabs }) {
   await Promise.all(tabTask)
   await wait(1200)
   console.log('init')
-  const downloadInfoTask = targetTabs.map(tab => executeScript(tab, getHtml))
+  const downloadInfoTask = targetTabs.map(tab => executeScript(tab, getVideoDetailsHtml))
   const downloadInfo = await Promise.all(downloadInfoTask)
   console.log('info', downloadInfo)
   const downloadTask = downloadInfo.map(item => onDownload(item))
@@ -122,7 +129,7 @@ async function create91PageTabs(currentTab, allTabUrls) {
 }
 
 async function downloadPage({ currentTab }) {
-  // todo 应该先执行getHdLink， 再执行getHtml
+  // todo 应该先执行getHdLink， 再执行getVideoDetailsHtml
   const allTabs = await getAllWindow()
   const targetTabs = allTabs.filter(tab => tab.url && tab.url.includes('viewthread.php'))
 
@@ -144,6 +151,23 @@ async function downloadStarAvatarList({ currentTab }) {
     const filename = `${filePath}/${file}`
     return chrome.downloads.download({ url: avatar.url, filename }).then(downloadId => {
       return { file, ...item, downloadId }
+    })
+  })
+  const res = await Promise.all(tasks)
+  console.log(res)
+}
+
+
+async function downloadMovieImageList({ currentTab }) {
+  const [{ frameId, result = [] }] = await executeScript(currentTab, getMovieDetail, [])
+  const { av, images } = result
+  console.log(result)
+  const filePath = 'avatar'
+  const tasks = images.map(item => {
+    const { name, url } = item
+    const filename = `${filePath}/${av}/${name}`
+    return chrome.downloads.download({ url, filename }).then(downloadId => {
+      return { av, ...item, downloadId }
     })
   })
   const res = await Promise.all(tasks)
