@@ -1,3 +1,5 @@
+import { pathParse } from './helper.js'
+
 
 let url = 'http://localhost:3005/avmoo/movie';
 url = 'http://localhost:3005/avmoo/custom'
@@ -26,11 +28,20 @@ async function download(data = []) {
     //   "dest": "さつき芽衣/GVH-345",
     //   "sample": ""
     // }
-    const filename = `${dest}/${name}`
+    const filename = `${dest}/${convertFormat(name)}`
     return chrome.downloads.download({ url, filename }).then(downloadId => {
       return { av, ...item, downloadId }
     })
   })
   const res = await Promise.all(tasks)
   console.log(res)
+}
+
+function convertFormat(filename) {
+  const { ext, name } = pathParse(filename)
+
+  if (['.webp'].includes(ext)) {
+    return `${name}.jpg`
+  }
+  return filename
 }
