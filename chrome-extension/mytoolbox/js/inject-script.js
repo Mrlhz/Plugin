@@ -33,3 +33,8 @@ function trim(str) {
   .replace(/[’''‘”“'^]/g, '')
   .replace(/[\\\/\:\*\?\"\<\>\|]/g, '-')
 }
+
+// test in window
+function test() {
+  console.log(this === window)
+}

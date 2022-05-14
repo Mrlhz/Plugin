@@ -1,11 +1,21 @@
+/* https://buondua.com/ */
+.exo-ipp,
+/* https://stackoverflow.com/ */
+.ws4.js-consent-banner,
 /* u3c3.com@yahoo.com */
 div[class*=ADTOPLB_],
 /* javbus */
+#nv_forum .bcpic, 
 .ad-table,
 .ad-list {
   display: none !important;
 }
 
+/* http://www.taiyingshi.vip/ */
+#fix_bottom_dom,
+#cscpvrich7798_ab,
+iframe[name*="__main_iframe__"] #cs_DIV_cscpvrich7798B,
+/*  */
 .ad-box,
 #ad_text {
   display: none !important;
@@ -22,4 +32,16 @@ div[class*=ADTOPLB_],
 #HMcoupletDivright,
 #HMRichBox {
   display: none !important;
+}
+
+@namespace url(http://www.w3.org/1999/xhtml);
+@-moz-document domain("www.mongoosejs.net") {
+  img {
+    display: none;
+  }
+}
+
+/* http://www.mongoosejs.net */
+.container img[src*="/docs/images/lagoujika.jpeg"] {
+  display: none;
 }

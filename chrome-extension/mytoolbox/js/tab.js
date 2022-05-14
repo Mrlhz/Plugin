@@ -228,7 +228,14 @@ const data = [{
     title: "掘金",
     desc: "掘金 - 代码不止，掘金不停",
     type: ""
-  }
+  },
+  {
+    url: "https://w1.v2dns.xyz/user/",
+    img: "../image/v2free.png",
+    title: "V2free",
+    desc: "科学上网",
+    type: ""
+  },
   // {
   //   url: "",
   //   img: "",

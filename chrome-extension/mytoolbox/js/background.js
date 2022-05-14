@@ -1,9 +1,15 @@
 let result = {}
 
-chrome.contextMenus.create({
-  title: "Copy",
-  onclick: function () {
-    // let file = copy()
+chrome.runtime.onInstalled.addListener(function () {
+  chrome.contextMenus.create({
+    id: 'copy',
+    type: 'normal',
+    title: 'Copy'
+  })
+})
+
+chrome.contextMenus.onClicked.addListener(async function (info, tab) {
+  if (info.menuItemId == 'copy') {
     console.log(0, result)
     copyToClipboard(result.data)
   }
