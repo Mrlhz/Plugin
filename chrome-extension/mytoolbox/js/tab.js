@@ -48,17 +48,17 @@ const data = [{
     type: ""
   },
   {
-    url: "https://yiyibooks.cn/",
-    img: "../image/yiyibooks.ico",
-    title: "一译",
-    desc: "在线技术文档协作翻译网",
-    type: ""
-  },
-  {
     url: "http://nodejs.cn/",
     img: "../image/node.png",
     title: "Node.js",
     desc: "Node.js 中文网",
+    type: ""
+  },
+  {
+    url: "https://jsdoc.app/",
+    img: "../image/es6.ico",
+    title: "JSDoc",
+    desc: "JavaScript的API文档",
     type: ""
   },
   {
@@ -230,19 +230,33 @@ const data = [{
     type: ""
   },
   {
+    url: "https://developer.chrome.com/docs/extensions/mv3/",
+    img: "../image/chrome-icon.png",
+    title: "Chrome Extensions",
+    desc: "Chrome Extensions Documentation",
+    type: ""
+  },
+  {
     url: "https://w1.v2dns.xyz/user/",
     img: "../image/v2free.png",
     title: "V2free",
     desc: "科学上网",
     type: ""
   },
-  // {
-  //   url: "",
-  //   img: "",
-  //   title: "",
-  //   desc: "",
-  //   type: ""
-  // }
+  {
+    url: "https://kaifa.baidu.com/",
+    img: "../image/kaifa.baidu.com.favicon.ico",
+    title: "开发者搜索",
+    desc: "百度开发者搜索Beta",
+    type: ""
+  },
+  {
+    url: "https://yiyibooks.cn/",
+    img: "../image/yiyibooks.ico",
+    title: "一译",
+    desc: "在线技术文档协作翻译网",
+    type: ""
+  },
   // {
   //   url: "",
   //   img: "",

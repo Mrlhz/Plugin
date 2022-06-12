@@ -13,6 +13,7 @@
   time = time ? time.innerText.trim() : ''
   author = author ? author.innerText.trim() : ''
   let downloadLink = download[0] ? download[0].getAttribute('href') : ''
+  console.log(`91/[${author}]-${title}-${time}`)
   return { title, time, author, downloadLink }
 }
 
@@ -38,15 +39,17 @@ export function getHdLink(...args) {
   console.log(arguments, args, this)
   try {
     const videodetails = document.querySelector('#videodetails-content')
+    if (location.href.includes('view_video_hd')) return // HD
     if (!videodetails) { return }
     const [hdLink] = [...videodetails.querySelectorAll('a')].filter(item => {
       return item && item.innerText && item.innerText.includes('高清')
     })
 
     if (hdLink) hdLink.click()
+    return !!hdLink
   } catch (e) {
     console.log(e)
-    return
+    return false
   }
 }
 
@@ -149,9 +152,10 @@ export function getMovieDetail() {
       const url = item.getAttribute('href') // https://pics.dmm.co.jp/digital/video/h_1100hzgb00025/h_1100hzgb00025jp-1.jpg
       const start = url.lastIndexOf('/')
       const photo_frame = item.querySelector('.photo-frame img')
+      const { origin } = location
       return {
         name: url.substring(start + 1), // h_1100hzgb00025jp-1.jpg
-        url,
+        url: url.includes('http') ? url: `${origin}${url}`,
         sample: photo_frame ? photo_frame.getAttribute('src') : ''
       }
     })

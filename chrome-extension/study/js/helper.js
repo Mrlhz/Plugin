@@ -56,3 +56,8 @@ export function pathParse(pathString) {
     return splitWindowsRe.exec(filename).slice(1)
   }
 }
+
+
+export function safeFileName(str, replace = '-') {
+  return str.replace(/[\\\/\:\*\?\"\<\>\|]/g, replace)
+}
