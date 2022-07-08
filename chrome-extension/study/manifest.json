@@ -8,10 +8,15 @@
     "type": "module"
   },
   "content_scripts": [{
-    "js" : ["lib/axios.min.js"],
+    "js" : ["./js/content-script.js"],
     "matches": [
-      "*://localhost/*"
+      "*://localhost/*",
+      "https://developer.mozilla.org/*"
     ]
+  }],
+  "web_accessible_resources": [{
+    "resources": ["inject-script.js"],
+    "matches": ["<all_urls>"]
   }],
   "permissions": [
     "activeTab",

@@ -1,11 +1,15 @@
 # 插件开发学习之旅
 
-- [jQuery源码解析（架构与依赖模块）](https://www.imooc.com/learn/172)
-- [jQuery源码解析（DOM与核心模块）](https://www.imooc.com/learn/222)
-
 - [chrome-plugin](https://github.com/sxei/chrome-plugin-demo)
+- [Chrome DevTools](https://developer.chrome.com/docs/devtools/overview/)
 - [Chrome扩展及应用开发](https://github.com/Sneezry/chrome_extensions_and_apps_programming)
 - [MDN Web Docs浏览器扩展](https://developer.mozilla.org/zh-CN/docs/Mozilla/Add-ons/WebExtensions)
+
+- [Use a content script to access the page context variables and functions](https://stackoverflow.com/questions/9515704)
+- [chrome extension: run script after page has finished loading javascript](https://stackoverflow.com/questions/24689144)
+- [Chrome Extension: Make it run every page load](https://stackoverflow.com/questions/6497548)
+
+- [How to convert a Markdown file to PDF](https://stackoverflow.com/questions/17630486)
 
 ### 启动本地服务器预览Chrome Developers文档
 
@@ -32,4 +36,3 @@ In depth: core concepts
  https://developer.chrome.com/docs/extensions/mv3/messaging/
 ```
 
-- [Chrome DevTools](https://developer.chrome.com/docs/devtools/overview/)
