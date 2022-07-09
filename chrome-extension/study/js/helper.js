@@ -62,3 +62,20 @@ export function safeFileName(str, replace = '-') {
   return str.replace(/[\\\/\:\*\?\"\<\>\|]/g, replace)
     .replace(/~/g, '')
 }
+
+/**
+ * @description webp图片格式转化为jpg
+ * @param {string} filename 
+ * @returns {string} filename
+ * @example
+ * convertToJPG('1.webp')
+ * => '1.jpg'
+ */
+export function convertToJPG(filename) {
+  const { ext, name } = pathParse(filename)
+
+  if (['.webp'].includes(ext.toLocaleLowerCase())) {
+    return `${name}.jpg`
+  }
+  return filename
+}

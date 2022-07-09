@@ -257,6 +257,13 @@ const data = [{
     desc: "在线技术文档协作翻译网",
     type: ""
   },
+  {
+    url: "https://www.subtitlecat.com/",
+    img: "../image/subtitlecat.ico",
+    title: "Subtitle Cat",
+    desc: "作品字幕搜索",
+    type: ""
+  }
   // {
   //   url: "",
   //   img: "",

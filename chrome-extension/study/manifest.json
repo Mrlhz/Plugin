@@ -8,14 +8,14 @@
     "type": "module"
   },
   "content_scripts": [{
-    "js" : ["./js/content-script.js"],
+    "js" : ["js/content-script.js"],
     "matches": [
       "*://localhost/*",
       "https://developer.mozilla.org/*"
     ]
   }],
   "web_accessible_resources": [{
-    "resources": ["inject-script.js"],
+    "resources": ["*"],
     "matches": ["<all_urls>"]
   }],
   "permissions": [
