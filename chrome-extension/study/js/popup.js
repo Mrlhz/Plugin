@@ -1,47 +1,13 @@
-import { pathParse } from './helper.js'
-
-
-let url = 'http://localhost:3005/avmoo/movie';
-url = 'http://localhost:3005/avmoo/custom'
-
-document.querySelector('#requestBtn').addEventListener('click', (e) => {
-  console.log('self', this)
-  // init({ 'idols': '水卜さくら' })
-  init({ 'idols': 'さつき芽衣' })
+/**
+ * @description 新标签打开tab页面
+ */
+document.querySelector('#openNewTabBtn').addEventListener('click', (e) => {
+  createTab()
 })
 
+async function createTab() {
+  const url = chrome.runtime.getURL('../tabs.html')
 
-async function init(params) {
-  const { data } = await axios.get(url, { params })
-  console.log(data)
-  await download(data.images)
-}
+  const tab = await chrome.tabs.create({ url })
 
-
-async function download(data = []) {
-  const tasks = data.slice(0).map(item => {
-    const { av, name, url, dest } = item // 
-    // {
-    //   "av": "GVH-345",
-    //   "name": "GVH-345.jpg",
-    //   "url": "https://www.busjav.fun/pics/cover/8pq9_b.jpg",
-    //   "dest": "さつき芽衣/GVH-345",
-    //   "sample": ""
-    // }
-    const filename = `${dest}/${convertFormat(name)}`
-    return chrome.downloads.download({ url, filename }).then(downloadId => {
-      return { av, ...item, downloadId }
-    })
-  })
-  const res = await Promise.all(tasks)
-  console.log(res)
-}
-
-function convertFormat(filename) {
-  const { ext, name } = pathParse(filename)
-
-  if (['.webp'].includes(ext)) {
-    return `${name}.jpg`
-  }
-  return filename
 }
