@@ -5,11 +5,9 @@ import { cacheName } from './config.js'
 
 import blogMenuInit from './js/menus/busjav.blog.js'
 
+import './js/event.js'
+
 
 menuInit()
 blogMenuInit()
 console.log(cacheName)
-
-
-// 图标和图形生成器
-// https://zh-cn.cooltext.com/

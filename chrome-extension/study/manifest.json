@@ -15,7 +15,7 @@
     ]
   }],
   "web_accessible_resources": [{
-    "resources": ["*"],
+    "resources": ["js/*"], 
     "matches": ["<all_urls>"]
   }],
   "permissions": [
@@ -23,7 +23,8 @@
     "contextMenus",
     "downloads",
     "scripting",
-    "tabs"
+    "tabs",
+    "webRequest"
   ],
   "host_permissions": [
     "*://*/*"

@@ -1,8 +1,9 @@
 import { getAllWindow } from './helper.js'
+import './download.js'
 
 chrome.runtime.sendMessage({ msg: '你好，我是tabs呀，我主动发消息给后台'}, function(response) {
-  render()
 	console.log('收到来自后台的回复：' + response)
+  render()
 })
 
 
