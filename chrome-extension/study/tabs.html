@@ -1,15 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh">
+
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>所有页签</title>
-  <style>
-    .download {
-      margin-top: 100px;
-    }
-  </style>
+  <link rel="stylesheet" href="./css//tabs.css">
 </head>
 <body>
   <div class="main">
@@ -20,6 +17,11 @@
     <div class="download">
       <input type="text" id="starInput">
       <button id="requestBtn">下载图片</button>
+    </div>
+    <div id="progress-wrap" class="progress-wrap">
+      <progress value="0" max="100" style="display: none;"></progress>
+      <div id="progress-percent"></div>
+      <div id="progress-content"></div>
     </div>
   </div>
   <script src="./lib/axios.min.js"></script>

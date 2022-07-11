@@ -1,0 +1,22 @@
+.download {
+  margin-top: 100px;
+}
+
+/* https://stackoverflow.com/questions/42290719/custom-styling-progress-bar-in-css */
+progress {
+  /* style rules */
+  height: 40px;
+  width: 300px;
+}
+
+progress::-webkit-progress-bar {
+  /* style rules */
+}
+
+progress::-webkit-progress-value {
+  /* style rules */
+}
+
+progress::-moz-progress-bar {
+  /* style rules */
+}

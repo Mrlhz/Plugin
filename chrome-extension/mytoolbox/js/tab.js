@@ -258,6 +258,13 @@ const data = [{
     type: ""
   },
   {
+    url: "https://www.sasscss.com/documentation",
+    img: "../image/sass.png",
+    title: "Sass 文档",
+    desc: "Sass 中文文档",
+    type: ""
+  },
+  {
     url: "https://www.subtitlecat.com/",
     img: "../image/subtitlecat.ico",
     title: "Subtitle Cat",
