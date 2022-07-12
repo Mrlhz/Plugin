@@ -18,3 +18,5 @@
   - `url` <[string]>
 
 
+
+### `chrome.downloads.showDefaultFolder()` Show the default Downloads folder in a file manager. 在文件管理器中显示默认下载文件夹。

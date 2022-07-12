@@ -2,47 +2,47 @@
  * @description 创建右键菜单
  */
 
-import { executeScript, getCurrentTab, getAllWindow, wait, pathParse } from './helper.js'
+import { executeScript, getCurrentTab, getAllWindow, wait, pathParse, safeFileName } from './helper.js'
 import { getVideoDetailsHtml, getWellList, getHdLink, pages, setTitle, getAvatarList, getMovieDetail } from './dom.js'
+const menus = [
+  {
+    'id': 'downloadVideo',
+    'type': 'normal',
+    'title': '下载视频',
+  },
+  {
+    'id': 'newTabs',
+    'type': 'normal',
+    'title': '标签页',
+  },
+  {
+    'id': 'downloadAll',
+    'type': 'normal',
+    'title': 'download all',
+  },
+  {
+    'id': 'openView',
+    'type': 'normal',
+    'title': 'open view',
+  },
+  {
+    'id': 'downloadPage',
+    'type': 'normal',
+    'title': 'download page',
+  },
+  {
+    'id': 'downloadStarAvatar',
+    'type': 'normal',
+    'title': 'download Star Avatar',
+  },
+  {
+    'id': 'downloadMovieImage',
+    'type': 'normal',
+    'title': 'download Movie Image',
+  }
+]
 
 export default function menuInit() {
-  const menus = [
-    {
-      'id': 'downloadVideo',
-      'type': 'normal',
-      'title': '下载视频',
-    },
-    {
-      'id': 'newTabs',
-      'type': 'normal',
-      'title': '标签页',
-    },
-    {
-      'id': 'downloadAll',
-      'type': 'normal',
-      'title': 'download all',
-    },
-    {
-      'id': 'openView',
-      'type': 'normal',
-      'title': 'open view',
-    },
-    {
-      'id': 'downloadPage',
-      'type': 'normal',
-      'title': 'download page',
-    },
-    {
-      'id': 'downloadStarAvatar',
-      'type': 'normal',
-      'title': 'download Star Avatar',
-    },
-    {
-      'id': 'downloadMovieImage',
-      'type': 'normal',
-      'title': 'download Movie Image',
-    }
-  ];
   menus.forEach(menu => {
     chrome.runtime.onInstalled.addListener(function () {
       chrome.contextMenus.create(menu)
@@ -86,14 +86,34 @@ async function downloadAllTabVideo({ allTabs }) {
   const targetTabs = allTabs.filter(tab => tab.url && tab.url.includes('view_video'))
   console.log(targetTabs)
   const tabTask = targetTabs.map(tab => executeScript(tab, getHdLink))
-  await Promise.all(tabTask)
-  await wait(1200)
-  console.log('init')
+  const result = await Promise.all(tabTask)
+  // 获取hd的 数量
+  const hdLength = result.filter(([{ documentId, frameId, result }]) => result).length
+  console.log({ hdLength })
+  let k = 0
+  while(true) {
+    const { length } = await getCurrentHdLinkLength()
+    console.log({ length })
+    k++
+    if (length >= hdLength || k >= 20) {
+      break
+    }
+    await wait(500) // 500毫秒轮询一次，判断页面是否load完成
+  }
+  await wait(1000)
+  // todo 监听load事件
+  console.log('init', k)
   const downloadInfoTask = targetTabs.map(tab => executeScript(tab, getVideoDetailsHtml))
   const downloadInfo = await Promise.all(downloadInfoTask)
   console.log('info', downloadInfo)
   const downloadTask = downloadInfo.map(item => onDownload(item))
   const res = await Promise.all(downloadTask)
+}
+
+async function getCurrentHdLinkLength() {
+  const allTabs = await getAllWindow()
+  const allTabUrls = allTabs.map(item => item.url)
+  return allTabUrls.filter(url => url.includes('view_video_hd'))
 }
 
 async function newTabs(currentTab, allTabUrls) {
@@ -109,11 +129,11 @@ async function newTabs(currentTab, allTabUrls) {
 
 async function onDownload([ { result } ] = [{}]) {
   if (!result || !result.downloadLink) {
-    console.log('no file')
+    console.log('no file', result)
     return
   }
   const { downloadLink, title, time, author } = result
-  const res = await chrome.downloads.download({ url: downloadLink, filename: `91/[${author}]-${title}-${time}.mp4` })
+  const res = await chrome.downloads.download({ url: downloadLink, filename: `91/[${author}]-${safeFileName(title)}-${time}.mp4` })
   console.log(res)
 }
 
@@ -165,7 +185,7 @@ async function downloadMovieImageList({ currentTab }) {
   const filePath = 'avatar'
   const tasks = images.map(item => {
     const { name, url } = item
-    const filename = `${filePath}/${av}/${name}`
+    const filename = images.length === 1 ? `${filePath}/${name}` : `${filePath}/${av}/${name}`
     return chrome.downloads.download({ url, filename }).then(downloadId => {
       return { av, ...item, downloadId }
     })

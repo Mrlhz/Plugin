@@ -82,6 +82,31 @@
   "tts_engine": {...},
   "update_url": "https://path/to/updateInfo.xml",
   "version_name": "aString",
-  "web_accessible_resources": [...]
+  "web_accessible_resources": [{
+    {
+      "resources": [ "test1.png", "test2.png" ],
+      "matches": [ "https://web-accessible-resources-1.glitch.me/*" ]
+    }, {
+      "resources": [ "test3.png", "test4.png" ],
+      "matches": [ "https://web-accessible-resources-2.glitch.me/*" ],
+      "use_dynamic_url": true
+    }, {
+      "resources": ["js/*", "js/*.js", "*"],
+      "matches": ["<all_urls>"]
+    }
+  }]
 }
 ```
+
+- [Manifest - Web Accessible Resources](https://developer.chrome.com/docs/extensions/mv3/manifest/web_accessible_resources/)
+### web_accessible_resources.resources
+> An array of resources to be exposed. Resources are specified as strings and may contain * for wildcard matches. For example, "/images/*" exposes everything in the extension's /images directory recursively while "*.png" exposes all PNG files.
+
+### web_accessible_resources.matches
+> A list of URL match patterns specifying which pages can access the resources. Only the origin is used to match URLs. Origins include subdomain matching. Paths are ignored.
+
+### web_accessible_resources.extension_ids
+
+> A list of extension IDs, specifying which extensions can access the resources.
+### web_accessible_resources.use_dynamic_url
+> If true, only allow resources to be accessible through dynamic ID. The dynamic ID is generated per session. It's regenerated on browser restart or extension reload.
