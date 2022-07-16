@@ -31,24 +31,39 @@ const progressEl = document.querySelector('#progress-wrap progress')
 const progressContentEl = document.querySelector('#progress-content')
 const progressPercentEl = document.querySelector('#progress-percent')
 
-async function download(data = []) {
+async function download(data = [], options = {}) {
+  const { size = 20 } = options
   progressEl.style.display = data.length ? 'block' : 'none'
 
   const result = []
-  for (let index = 0, l = data.length; index < l; index++) {
-    const item = data[index]
-    const { av, name, url, dest } = item 
-    const filename = `${dest}/${convertToJPG(name)}`
-    const downloadItem = await chrome.downloads.download({ url, filename }).then(downloadId => {
-      return { av, ...item, downloadId }
+  for (let index = 0, l = data.length; index < l; index += size) {
+    const tasks = data.slice(index, index + size).map(item => {
+      const { av, name, url, dest } = item
+      const filename = `${dest}/${convertToJPG(name)}`
+      return chrome.downloads.download({ url, filename }).then(downloadId => {
+        return { av, ...item, downloadId }
+      })
     })
-    result.push(downloadItem)
 
+    if (index === 0) {
+      progressManage({ value: 0, max: l, text: `0 / ${l}`, percent: `${percent(0, l)}` })
+    }
+    const downloadItems = await Promise.allSettled(tasks)
+    result.push(...downloadItems)
+
+    // const item = data[index]
+    // const { av, name, url, dest } = item
+    // const filename = `${dest}/${convertToJPG(name)}`
+    // const downloadItem = await chrome.downloads.download({ url, filename }).then(downloadId => {
+    //   return { av, ...item, downloadId }
+    // })
+    // result.push(downloadItem)
+    const cur = Math.min(index + size + 1, l)
     progressManage({
-      value: index + 1,
+      value: cur,
       max: l,
-      text: `${index + 1} / ${l}`,
-      percent: `${percent(index + 1, l)}`
+      text: `${cur} / ${l}`,
+      percent: `${percent(cur, l)}`
     })
   }
   console.log(result)
@@ -76,7 +91,7 @@ async function fsManage(method, ...args) {
   return data
 }
 
-async function progressManage({ value, max, text, percent }) {
+function progressManage({ value, max, text, percent }) {
   if (!progressEl) return
 
   progressEl.setAttribute('value', value)
