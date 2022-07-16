@@ -20,7 +20,7 @@ async function getImagesList(params) {
   const exists = await fsManage('pathExists', Downloads.location)
   console.log(data)
   if (exists) {
-    await download(data.images)
+    await download(data.images, { size: 1 })
   }
   if (!exists) {
     console.log({ msg: `${Downloads.location} not exist` } )
@@ -37,27 +37,20 @@ async function download(data = [], options = {}) {
 
   const result = []
   for (let index = 0, l = data.length; index < l; index += size) {
-    const tasks = data.slice(index, index + size).map(item => {
-      const { av, name, url, dest } = item
-      const filename = `${dest}/${convertToJPG(name)}`
-      return chrome.downloads.download({ url, filename }).then(downloadId => {
-        return { av, ...item, downloadId }
-      })
-    })
-
+    console.log({index})
     if (index === 0) {
       progressManage({ value: 0, max: l, text: `0 / ${l}`, percent: `${percent(0, l)}` })
     }
+    // 1
+    const tasks = data.slice(index, index + size).map(item => chromeDownload(item))
     const downloadItems = await Promise.allSettled(tasks)
     result.push(...downloadItems)
 
+    // 2
     // const item = data[index]
-    // const { av, name, url, dest } = item
-    // const filename = `${dest}/${convertToJPG(name)}`
-    // const downloadItem = await chrome.downloads.download({ url, filename }).then(downloadId => {
-    //   return { av, ...item, downloadId }
-    // })
+    // const downloadItem = await chromeDownload(item)
     // result.push(downloadItem)
+
     const cur = Math.min(index + size + 1, l)
     progressManage({
       value: cur,
@@ -67,17 +60,14 @@ async function download(data = [], options = {}) {
     })
   }
   console.log(result)
+}
 
-  return
-  const tasks = data.slice(0).map(item => {
-    const { av, name, url, dest } = item
-    const filename = `${dest}/${convertToJPG(name)}`
-    return chrome.downloads.download({ url, filename }).then(downloadId => {
-      return { av, ...item, downloadId }
-    })
+function chromeDownload(item = {}) {
+  const { av, name, url, dest } = item
+  const filename = `${dest}/${convertToJPG(name)}`
+  return chrome.downloads.download({ url, filename }).then(downloadId => {
+    return { av, ...item, downloadId }
   })
-  const res = await Promise.allSettled(tasks)
-  console.log(res)
 }
 
 async function fsManage(method, ...args) {
