@@ -24,7 +24,8 @@
     "downloads",
     "scripting",
     "tabs",
-    "webRequest"
+    "webRequest",
+    "storage"
   ],
   "host_permissions": [
     "*://*/*"

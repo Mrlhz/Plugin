@@ -79,3 +79,23 @@ export function convertToJPG(filename) {
   }
   return filename
 }
+
+/**
+ * @description 处理 URL 的查询字符串
+ * @reference https://developer.mozilla.org/zh-CN/docs/Web/API/URLSearchParams
+ * @param {*} href 
+ * @returns {URLSearchParams} URLSearchParams instance
+ * @example
+ * const params = getSearchParams('https://example.com?foo=1&bar=2')
+ * => params.get('foo') === '1'
+ */
+export function getSearchParams(href) {
+  try {
+    const url = new URL(href)
+    const { search } = url
+    return new URLSearchParams(search.slice(1))
+  } catch (e) {
+    console.log(e)
+    return new URLSearchParams('')
+  }
+}

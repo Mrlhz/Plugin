@@ -2,8 +2,9 @@
  * @description 创建右键菜单
  */
 
-import { executeScript, getCurrentTab, getAllWindow, wait, pathParse, safeFileName } from './helper.js'
+import { executeScript, getCurrentTab, getAllWindow, wait, pathParse, safeFileName, getSearchParams } from './helper.js'
 import { getVideoDetailsHtml, getWellList, getHdLink, pages, setTitle, getAvatarList, getMovieDetail } from './dom.js'
+import { getVideoBriefInfo } from './core/getVideoBriefInfo.js'
 const menus = [
   {
     'id': 'downloadVideo',
@@ -14,6 +15,11 @@ const menus = [
     'id': 'newTabs',
     'type': 'normal',
     'title': '标签页',
+  },
+  {
+    'id': 'videoBriefInfo',
+    'type': 'normal',
+    'title': '视频简要信息',
   },
   {
     'id': 'downloadAll',
@@ -53,11 +59,14 @@ export default function menuInit() {
 chrome.contextMenus.onClicked.addListener(async function (info, tab) {
   const allTabs = await getAllWindow()
   const allTabUrls = allTabs.map(item => item.url)
+  const { menuItemId } = info
   console.log(info, tab, allTabs, allTabUrls)
   if (info.menuItemId == 'downloadVideo') {
     await downloadVideo()
   } else if (info.menuItemId == 'newTabs') {
     await newTabs(tab, allTabUrls)
+  } else if (menuItemId === 'videoBriefInfo') {
+    await getVideoBriefInfo(tab)
   } else if (info.menuItemId === 'downloadAll') {
     await downloadAllTabVideo({ allTabs })
   } else if (info.menuItemId === 'openView') {
@@ -95,7 +104,7 @@ async function downloadAllTabVideo({ allTabs }) {
     const { length } = await getCurrentHdLinkLength()
     console.log({ length })
     k++
-    if (length >= hdLength || k >= 20) {
+    if (length >= hdLength || k >= 120) {
       break
     }
     await wait(500) // 500毫秒轮询一次，判断页面是否load完成
@@ -132,10 +141,24 @@ async function onDownload([ { result } ] = [{}]) {
     console.log('no file', result)
     return
   }
-  const { downloadLink, title, time, author } = result
+  let { downloadLink, title, time, author, url } = result
+  title = await getTitle({ title, url }) // 确保能取到标题
   const res = await chrome.downloads.download({ url: downloadLink, filename: `91/[${author}]-${safeFileName(title)}-${time}.mp4` })
   console.log(res)
 }
+
+async function getTitle({ title, url }) {
+  if (title) return title
+  const viewkey = getSearchParams(url).get('viewkey')
+  const storageTitle = await getStorageTitle(viewkey)
+  return storageTitle
+}
+
+async function getStorageTitle(viewkey) {
+  const storageItem = await chrome.storage.local.get([viewkey])
+  const { title } = storageItem[viewkey] || {}
+  return title || ''
+} 
 
 async function create91PageTabs(currentTab, allTabUrls) {
   const [{ frameId, result }] = await executeScript(currentTab, pages)

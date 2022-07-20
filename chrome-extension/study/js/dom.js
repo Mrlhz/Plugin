@@ -3,7 +3,7 @@
  * @export
  * @returns {Object} 视频名称、下载链接、作者、发布时间
  */
- export function getVideoDetailsHtml() {
+export function getVideoDetailsHtml() {
   console.log(arguments)
   let title = document.querySelector('#videodetails.videodetails-yakov .login_register_header')
   let time = document.querySelector('#videodetails-content .title-yakov')
@@ -14,7 +14,7 @@
   author = author ? author.innerText.trim() : ''
   let downloadLink = download[0] ? download[0].getAttribute('href') : ''
   console.log(`91/[${author}]-${title}-${time}`)
-  return { title, time, author, downloadLink }
+  return { title, time, author, downloadLink, url: location.href }
 }
 
 /**
@@ -79,14 +79,14 @@ export function pages() {
 export function setTitle({}) {
   try {
     function GetQueryString(name) {
-      var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)", "i");  
-      var r = window.location.search.substr(1).match(reg);  //获取url中"?"符后的字符串并正则匹配
+      var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)", "i");
+      var r = window.location.search.substr(1).match(reg); //获取url中"?"符后的字符串并正则匹配
       var context = ""
       if (r != null)
       context = r[2]
       reg = null
       r = null
-      return context == null || context == "" || context == "undefined" ? "" : context;  
+      return context == null || context == "" || context == "undefined" ? "" : context;
     }
     const page = GetQueryString('page')
     if (!/^\d+-/.test(document.title)) {
