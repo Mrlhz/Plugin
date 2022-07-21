@@ -64,6 +64,7 @@ chrome.contextMenus.onClicked.addListener(async function (info, tab) {
   if (info.menuItemId == 'downloadVideo') {
     await downloadVideo()
   } else if (info.menuItemId == 'newTabs') {
+    await getVideoBriefInfo(tab)
     await newTabs(tab, allTabUrls)
   } else if (menuItemId === 'videoBriefInfo') {
     await getVideoBriefInfo(tab)
@@ -142,22 +143,21 @@ async function onDownload([ { result } ] = [{}]) {
     return
   }
   let { downloadLink, title, time, author, url } = result
-  title = await getTitle({ title, url }) // 确保能取到标题
-  const res = await chrome.downloads.download({ url: downloadLink, filename: `91/[${author}]-${safeFileName(title)}-${time}.mp4` })
+  // author TODO
+  const info = await getStorageInfo({ url }) // 确保能取到标题
+  title = title ? title : info.title || ''
+  author = author ? author : info.author || ''
+  if (!title || !author) {
+    return Promise.resolve(0)
+  }
+  const res = await chrome.downloads.download({ url: downloadLink, filename: `91/[${author || ''}]-${safeFileName(title)}-${time}.mp4` })
   console.log(res)
 }
 
-async function getTitle({ title, url }) {
-  if (title) return title
+async function getStorageInfo({ url }) {
   const viewkey = getSearchParams(url).get('viewkey')
-  const storageTitle = await getStorageTitle(viewkey)
-  return storageTitle
-}
-
-async function getStorageTitle(viewkey) {
   const storageItem = await chrome.storage.local.get([viewkey])
-  const { title } = storageItem[viewkey] || {}
-  return title || ''
+  return storageItem[viewkey] || {}
 } 
 
 async function create91PageTabs(currentTab, allTabUrls) {

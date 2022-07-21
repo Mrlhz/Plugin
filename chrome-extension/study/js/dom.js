@@ -24,14 +24,15 @@ export function getVideoDetailsHtml() {
  */
 export function getWellList() {
   let wellList = document.querySelectorAll('.well.well-sm')
-
+  const authorEl = document.querySelector('.login_register_header')
+  const author = authorEl ? authorEl.innerText.split(' ')[0] : ''
   return Array.from(wellList).map(item => {
     let videoTitle = item.querySelector('.video-title')
     let link = item.querySelector('a')
-    console.log(videoTitle, link)
+    // console.log(videoTitle, link)
     let href = link ? link.getAttribute('href') : ''
     let title = videoTitle ? videoTitle.innerText : ''
-    return { title, href }
+    return { title, href, author }
   })
 }
 
