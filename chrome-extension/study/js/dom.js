@@ -24,15 +24,33 @@ export function getVideoDetailsHtml() {
  */
 export function getWellList() {
   let wellList = document.querySelectorAll('.well.well-sm')
-  const authorEl = document.querySelector('.login_register_header')
-  const author = authorEl ? authorEl.innerText.split(' ')[0] : ''
+  // 通过作者视频列表页面 或者推荐视频列表 取作者名
+  const getHeaderAuthor = () => {
+    const authorEl = document.querySelector('.login_register_header')
+    const headerAuthor = authorEl ? authorEl.innerText.split(' ')[0] : ''
+    return headerAuthor === '我关注用户的视频' ? '' : headerAuthor
+  }
+
+  // 通过 我关注用户的视频 页面获取作者名
+  const keyWord = '作者:'
+  const findAuthor = (array) => {
+    const authorItem = array.find(v => v.includes(keyWord))
+    return authorItem ? authorItem.split(' ')[1] || '' : ''
+  }
+  const getListAuthor = (wellItem) => {
+    const fullText = wellItem.innerText
+    const author = fullText.includes(keyWord) ? findAuthor(fullText.split('\n')) : ''
+    return author || ''
+  }
+
   return Array.from(wellList).map(item => {
     let videoTitle = item.querySelector('.video-title')
     let link = item.querySelector('a')
-    // console.log(videoTitle, link)
     let href = link ? link.getAttribute('href') : ''
-    let title = videoTitle ? videoTitle.innerText : ''
-    return { title, href, author }
+    let title = videoTitle ? videoTitle.innerText || '' : ''
+    title = title.replace('[原创]', '')
+    const author = getListAuthor(item) || getHeaderAuthor()
+    return { title, href, author}
   })
 }
 
