@@ -3,8 +3,7 @@
  * @export
  * @returns {Object} 视频名称、下载链接、作者、发布时间
  */
-export function getVideoDetailsHtml() {
-  console.log(arguments)
+export function getVideoDetailsHtml({ viewkey }) {
   let title = document.querySelector('#videodetails.videodetails-yakov .login_register_header')
   let time = document.querySelector('#videodetails-content .title-yakov')
   let author = document.querySelector('#videodetails-content .title-yakov .title')
@@ -14,7 +13,7 @@ export function getVideoDetailsHtml() {
   author = author ? author.innerText.trim() : ''
   let downloadLink = download[0] ? download[0].getAttribute('href') : ''
   console.log(`91/[${author}]-${title}-${time}`)
-  return { title, time, author, downloadLink, url: location.href }
+  return { title, time, author, downloadLink, url: location.href, viewkey }
 }
 
 /**
@@ -48,9 +47,9 @@ export function getWellList() {
     let link = item.querySelector('a')
     let href = link ? link.getAttribute('href') : ''
     let title = videoTitle ? videoTitle.innerText || '' : ''
-    title = title.replace('[原创]', '')
+    title = title.replace('[原创]', '').trim()
     const author = getListAuthor(item) || getHeaderAuthor()
-    return { title, href, author}
+    return { title, href, author }
   })
 }
 

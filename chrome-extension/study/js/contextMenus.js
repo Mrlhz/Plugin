@@ -86,7 +86,8 @@ async function downloadVideo() {
   const tab = await getCurrentTab()
   await executeScript(tab, getHdLink, [tab])
   await wait(1200)
-  const res = await executeScript(tab, getVideoDetailsHtml)
+  const viewkey = getSearchParams(tab.url).get('viewkey')
+  const res = await executeScript(tab, getVideoDetailsHtml, [{ viewkey }])
   console.log(res)
   await onDownload(res)
 }
@@ -94,7 +95,21 @@ async function downloadVideo() {
 async function downloadAllTabVideo({ allTabs }) {
   // filter
   const targetTabs = allTabs.filter(tab => tab.url && tab.url.includes('view_video'))
-  console.log(targetTabs)
+  console.log({ targetTabs })
+  // todo 监听load事件
+  await waitForPageComplete(targetTabs)
+  await wait(1000)
+  const downloadInfoTask = targetTabs.map(tab => {
+    const viewkey = getSearchParams(tab.url).get('viewkey')
+    return executeScript(tab, getVideoDetailsHtml, [{ viewkey }])
+  })
+  const downloadInfo = await Promise.all(downloadInfoTask)
+  console.log('info', downloadInfo)
+  const downloadTask = downloadInfo.map(item => onDownload(item))
+  const res = await Promise.all(downloadTask)
+}
+
+async function waitForPageComplete(targetTabs) {
   const tabTask = targetTabs.map(tab => executeScript(tab, getHdLink))
   const result = await Promise.all(tabTask)
   // 获取hd的 数量
@@ -110,14 +125,7 @@ async function downloadAllTabVideo({ allTabs }) {
     }
     await wait(500) // 500毫秒轮询一次，判断页面是否load完成
   }
-  await wait(1000)
-  // todo 监听load事件
   console.log('init', k)
-  const downloadInfoTask = targetTabs.map(tab => executeScript(tab, getVideoDetailsHtml))
-  const downloadInfo = await Promise.all(downloadInfoTask)
-  console.log('info', downloadInfo)
-  const downloadTask = downloadInfo.map(item => onDownload(item))
-  const res = await Promise.all(downloadTask)
 }
 
 async function getCurrentHdLinkLength() {
@@ -143,6 +151,7 @@ async function onDownload([ { result } ] = [{}]) {
     return
   }
   let { downloadLink, title, time, author, url } = result
+  const viewkey = getSearchParams(url).get('viewkey')
   // author TODO
   const info = await getStorageInfo({ url }) // 确保能取到标题
   title = title ? title : info.title || ''
@@ -150,8 +159,16 @@ async function onDownload([ { result } ] = [{}]) {
   if (!title || !author) {
     return Promise.resolve(0)
   }
+  const videoInfoObj = await chrome.storage.local.get([viewkey])
+  const videoInfo = videoInfoObj[viewkey] || {}
+  // TODO 要重新下载的情形如何处理
+  if (videoInfo.downloaded) {
+    return Promise.resolve('Downloaded')
+  }
   const res = await chrome.downloads.download({ url: downloadLink, filename: `91/[${author || ''}]-${safeFileName(title)}-${time}.mp4` })
-  console.log(res)
+  await chrome.storage.local.set({ [viewkey]: Object.assign({}, videoInfo, { downloaded: true }) })
+  console.log(res, { videoInfoObj })
+  return res
 }
 
 async function getStorageInfo({ url }) {
@@ -172,7 +189,6 @@ async function create91PageTabs(currentTab, allTabUrls) {
 }
 
 async function downloadPage({ currentTab }) {
-  // todo 应该先执行getHdLink， 再执行getVideoDetailsHtml
   const allTabs = await getAllWindow()
   const targetTabs = allTabs.filter(tab => tab.url && tab.url.includes('viewthread.php'))
 
