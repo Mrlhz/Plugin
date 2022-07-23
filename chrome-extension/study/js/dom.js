@@ -3,7 +3,7 @@
  * @export
  * @returns {Object} 视频名称、下载链接、作者、发布时间
  */
-export function getVideoDetailsHtml({ viewkey }) {
+export function getVideoDetailsHtml() {
   let title = document.querySelector('#videodetails.videodetails-yakov .login_register_header')
   let time = document.querySelector('#videodetails-content .title-yakov')
   let author = document.querySelector('#videodetails-content .title-yakov .title')
@@ -13,7 +13,7 @@ export function getVideoDetailsHtml({ viewkey }) {
   author = author ? author.innerText.trim() : ''
   let downloadLink = download[0] ? download[0].getAttribute('href') : ''
   console.log(`91/[${author}]-${title}-${time}`)
-  return { title, time, author, downloadLink, url: location.href, viewkey }
+  return { title, time, author, downloadLink, url: location.href }
 }
 
 /**

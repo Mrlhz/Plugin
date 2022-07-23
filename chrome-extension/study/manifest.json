@@ -43,5 +43,6 @@
     },
     "default_title": "Extension",
     "default_popup": "popup.html"
-  }
+  },
+  "devtools_page": "devtools.html"
 }

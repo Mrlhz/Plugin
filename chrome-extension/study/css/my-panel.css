@@ -1,0 +1,12 @@
+
+.app {
+  display: flex;
+  flex-direction: column;
+}
+
+.app .item {
+  font-weight: 700;
+  font-size: 14px;
+  color: #3273dc;
+  cursor: pointer;
+}

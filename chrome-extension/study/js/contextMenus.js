@@ -82,14 +82,12 @@ chrome.contextMenus.onClicked.addListener(async function (info, tab) {
 })
 
 async function downloadVideo() {
-  // todo 应该先执行getHdLink， 再执行getVideoDetailsHtml
   const tab = await getCurrentTab()
   await executeScript(tab, getHdLink, [tab])
-  await wait(1200)
-  const viewkey = getSearchParams(tab.url).get('viewkey')
-  const res = await executeScript(tab, getVideoDetailsHtml, [{ viewkey }])
-  console.log(res)
-  await onDownload(res)
+  await wait(1200) // TODO
+  const res = await executeScript(tab, getVideoDetailsHtml, [{ emit: 'download_video' }])
+  const result = await onDownload(res)
+  console.log(res, result)
 }
 
 async function downloadAllTabVideo({ allTabs }) {
@@ -100,8 +98,7 @@ async function downloadAllTabVideo({ allTabs }) {
   await waitForPageComplete(targetTabs)
   await wait(1000)
   const downloadInfoTask = targetTabs.map(tab => {
-    const viewkey = getSearchParams(tab.url).get('viewkey')
-    return executeScript(tab, getVideoDetailsHtml, [{ viewkey }])
+    return executeScript(tab, getVideoDetailsHtml, [{ emit: 'download_allTab_video' }])
   })
   const downloadInfo = await Promise.all(downloadInfoTask)
   console.log('info', downloadInfo)

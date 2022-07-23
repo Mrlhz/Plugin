@@ -71,7 +71,7 @@ chrome.scripting.executeScript(
     });
 ```
 
-> scripting.insertCSS() does not return any results.
+> `scripting.insertCSS()` does not return any results.
 
 ```js
 ```
