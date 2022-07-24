@@ -84,7 +84,7 @@ chrome.contextMenus.onClicked.addListener(async function (info, tab) {
 async function downloadVideo() {
   const tab = await getCurrentTab()
   await executeScript(tab, getHdLink, [tab])
-  await wait(1200) // TODO
+  await waitForPageComplete([tab])
   const res = await executeScript(tab, getVideoDetailsHtml, [{ emit: 'download_video' }])
   const result = await onDownload(res)
   console.log(res, result)
@@ -114,7 +114,7 @@ async function waitForPageComplete(targetTabs) {
   console.log({ hdLength })
   let k = 0
   while(true) {
-    const { length } = await getCurrentHdLinkLength()
+    const { length } = await getCurrentHdLinkLength(targetTabs)
     console.log({ length })
     k++
     if (length >= hdLength || k >= 120) {
@@ -125,9 +125,8 @@ async function waitForPageComplete(targetTabs) {
   console.log('init', k)
 }
 
-async function getCurrentHdLinkLength() {
-  const allTabs = await getAllWindow()
-  const allTabUrls = allTabs.map(item => item.url)
+async function getCurrentHdLinkLength(targetTabs = []) {
+  const allTabUrls = targetTabs.map(item => item.url)
   return allTabUrls.filter(url => url.includes('view_video_hd'))
 }
 
