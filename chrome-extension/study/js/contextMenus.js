@@ -3,8 +3,10 @@
  */
 
 import { executeScript, getCurrentTab, getAllWindow, wait, pathParse, safeFileName, getSearchParams } from './helper.js'
-import { getVideoDetailsHtml, getWellList, getHdLink, pages, setTitle, getAvatarList, getMovieDetail } from './dom.js'
+import { getVideoDetailsHtml, getWellList, getHdLink, pages, setTitle } from './dom.js'
 import { getVideoBriefInfo } from './core/getVideoBriefInfo.js'
+import { downloadMovieImageList, downloadStarAvatarList } from './core/downloadManage.js'
+
 const menus = [
   {
     'id': 'downloadVideo',
@@ -107,15 +109,17 @@ async function downloadAllTabVideo({ allTabs }) {
 }
 
 async function waitForPageComplete(targetTabs) {
+  const ids = targetTabs.map(({ id }) => id)
   const tabTask = targetTabs.map(tab => executeScript(tab, getHdLink))
   const result = await Promise.all(tabTask)
   // 获取hd的 数量
   const hdLength = result.filter(([{ documentId, frameId, result }]) => result).length
-  console.log({ hdLength })
   let k = 0
   while(true) {
-    const { length } = await getCurrentHdLinkLength(targetTabs)
-    console.log({ length })
+    const latestTabs = await getAllWindow()
+    const latestTargetTabs = latestTabs.filter(({ id }) => ids.includes(id))
+    const { length } = await getCurrentHdLinkLength(latestTargetTabs)
+    console.log({ length, hdLength })
     k++
     if (length >= hdLength || k >= 120) {
       break
@@ -137,7 +141,6 @@ async function newTabs(currentTab, allTabUrls) {
     .filter(item => !allTabUrls.includes(item.href)) // TODO href、url统一
     .map(item => chrome.tabs.create({ url: item.href }))
   const response = await Promise.all(task)
-  // const hd = await Promise.all(response.map(item => executeScript(item, getHdLink)))
   console.log(response)
 }
 
@@ -147,8 +150,8 @@ async function onDownload([ { result } ] = [{}]) {
     return
   }
   let { downloadLink, title, time, author, url } = result
+  const { name } = pathParse(downloadLink) // video 原名，用于判断文件重复
   const viewkey = getSearchParams(url).get('viewkey')
-  // author TODO
   const info = await getStorageInfo({ url }) // 确保能取到标题
   title = title ? title : info.title || ''
   author = author ? author : info.author || ''
@@ -161,7 +164,8 @@ async function onDownload([ { result } ] = [{}]) {
   if (videoInfo.downloaded) {
     return Promise.resolve('Downloaded')
   }
-  const res = await chrome.downloads.download({ url: downloadLink, filename: `91/[${author || ''}]-${safeFileName(title)}-${time}.mp4` })
+
+  const res = await chrome.downloads.download({ url: downloadLink, filename: `91/[${author || ''}]-${safeFileName(title)}-${name}--${time}.mp4` })
   await chrome.storage.local.set({ [viewkey]: Object.assign({}, videoInfo, { downloaded: true }) })
   console.log(res, { videoInfoObj })
   return res
@@ -180,7 +184,6 @@ async function create91PageTabs(currentTab, allTabUrls) {
     .filter(item => !allTabUrls.includes(item.url))
     .map(item => chrome.tabs.create({ url: item.url }))
   const response = await Promise.all(task)
-  // const hd = await Promise.all(response.map(item => executeScript(item, getHdLink)))
   console.log(response)
 }
 
@@ -193,38 +196,4 @@ async function downloadPage({ currentTab }) {
   const [{ frameId, result }] = await executeScript(currentTab, pages)
   console.log(result)
   // await chrome.downloads.download({ url: result[0].url, filename: result[0].save})
-}
-
-async function downloadStarAvatarList({ currentTab }) {
-  const [{ frameId, result = [] }] = await executeScript(currentTab, getAvatarList, [])
-  console.log(result)
-  const filePath = 'avatar'
-  const tasks = result.map(item => {
-    const { avatar, name } = item
-    const { ext } = pathParse(avatar.url)
-    const file = `${name}${ext}`
-    const filename = `${filePath}/${file}`
-    return chrome.downloads.download({ url: avatar.url, filename }).then(downloadId => {
-      return { file, ...item, downloadId }
-    })
-  })
-  const res = await Promise.all(tasks)
-  console.log(res)
-}
-
-
-async function downloadMovieImageList({ currentTab }) {
-  const [{ frameId, result = [] }] = await executeScript(currentTab, getMovieDetail, [])
-  const { av, images } = result
-  console.log(result)
-  const filePath = 'avatar'
-  const tasks = images.map(item => {
-    const { name, url } = item
-    const filename = images.length === 1 ? `${filePath}/${name}` : `${filePath}/${av}/${name}`
-    return chrome.downloads.download({ url, filename }).then(downloadId => {
-      return { av, ...item, downloadId }
-    })
-  })
-  const res = await Promise.all(tasks)
-  console.log(res)
 }
