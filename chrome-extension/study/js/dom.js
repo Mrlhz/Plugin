@@ -73,8 +73,8 @@ export function getHdLink(...args) {
 
 export function pages() {
   let title = document.querySelector('#nav') // dom
-  title = title ? title.innerText : '' // '91自拍论坛 » xxxx » 照片接龙~xxxx'
-  title = title.split('»')[2] ? title.split('»')[2].trim() : '' // 照片接龙~xxxx
+  title = title ? title.innerText : '' // 'xx1xx » xx2xx » xx3xx'
+  title = title.split('»')[2] ? title.split('»')[2].trim() : '' // xx3xx
   let page = document.querySelectorAll('.pages')
   page = page.length === 1 ? page[0]: page[1]
   const pageList = [...page.querySelectorAll('a')]

@@ -31,3 +31,8 @@ async function updateVideoInfo(viewkey, data = {}) {
   await chrome.storage.local.set(newInfo)
 
 }
+
+// 复制当前页面的`href`链接
+document.getElementById('copy_current_tab_href').addEventListener('click', () => {
+  chrome.devtools.inspectedWindow.eval('copy(decodeURIComponent(location.href))', () => {})
+})
