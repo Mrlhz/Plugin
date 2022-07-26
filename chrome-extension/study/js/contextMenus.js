@@ -160,12 +160,14 @@ async function onDownload([ { result } ] = [{}]) {
   }
   const videoInfoObj = await chrome.storage.local.get([viewkey])
   const videoInfo = videoInfoObj[viewkey] || {}
+  const filename = `91/[${author || ''}]-${safeFileName(title)}-${name}--${time}.mp4`
   // TODO 要重新下载的情形如何处理
   if (videoInfo.downloaded) {
+    console.log(filename)
     return Promise.resolve('Downloaded')
   }
 
-  const res = await chrome.downloads.download({ url: downloadLink, filename: `91/[${author || ''}]-${safeFileName(title)}-${name}--${time}.mp4` })
+  const res = await chrome.downloads.download({ url: downloadLink, filename })
   await chrome.storage.local.set({ [viewkey]: Object.assign({}, videoInfo, { downloaded: true }) })
   console.log(res, { videoInfoObj })
   return res

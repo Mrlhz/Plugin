@@ -1,5 +1,5 @@
 import { getVideoDetailsHtml } from './dom.js'
-import { executeScript, getCurrentTab, getSearchParams } from './helper.js'
+import { executeScript, getCurrentTab, getSearchParams, getAllWindow } from './helper.js'
 
 
 document.getElementById('send_message').addEventListener('click', (e) => {
@@ -35,4 +35,19 @@ async function updateVideoInfo(viewkey, data = {}) {
 // 复制当前页面的`href`链接
 document.getElementById('copy_current_tab_href').addEventListener('click', () => {
   chrome.devtools.inspectedWindow.eval('copy(decodeURIComponent(location.href))', () => {})
+})
+
+// 复制所有页签的title、url，过滤掉chrome开头的页签
+document.getElementById('get_tabs_links').addEventListener('click', async () => {
+  const tabs = await getAllWindow()
+
+  const result = tabs
+    // ignore ['chrome://newtab/', 'chrome-extension://xxxx']
+    .filter(({ url }) => !/chrome:|chrome-extension:/i.test(url))
+    .map(({ title, url }) => `- [${title}](${url})`).join('\n');
+  chrome.devtools.inspectedWindow.eval(`copy(${JSON.stringify(result)})`, () => {})
+
+  chrome.runtime.sendMessage({ type: 'devtools', tabs, result }, function (response) {
+    console.log('收到来自后台的回复：', response)
+  })
 })
