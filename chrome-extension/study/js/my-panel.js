@@ -26,9 +26,9 @@ async function updateVideoInfo(viewkey, data = {}) {
   if (['author', 'title'].some(key => !data[key])) {
     return
   }
-  const videoInfo = await chrome.storage.local.get([viewkey])
-  const newInfo = { [viewkey]: Object.assign({}, videoInfo[viewkey], data) }
-  await chrome.storage.local.set(newInfo)
+  const videoInfo = await chrome.storage.local.get(viewkey)
+  const newInfo = Object.assign({}, videoInfo[viewkey], data)
+  await chrome.storage.local.set({ [viewkey]: newInfo })
 
 }
 

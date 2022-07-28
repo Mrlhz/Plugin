@@ -76,9 +76,9 @@ chrome.contextMenus.onClicked.addListener(async function (info, tab) {
     await create91PageTabs(tab, allTabUrls)
   } else if (info.menuItemId === 'downloadPage') {
     await downloadPage({ currentTab: tab })
-  } else if (info.menuItemId === 'downloadStarAvatar'){
+  } else if (info.menuItemId === 'downloadStarAvatar') {
     await downloadStarAvatarList({ currentTab: tab })
-  } else if (info.menuItemId === 'downloadMovieImage'){
+  } else if (info.menuItemId === 'downloadMovieImage') {
     await downloadMovieImageList({ currentTab: tab })
   }
 })
@@ -152,7 +152,7 @@ async function onDownload([ { result } ] = [{}]) {
   let { downloadLink, title, time, author, url } = result
   const { name } = pathParse(downloadLink) // video 原名，用于判断文件重复
   const viewkey = getSearchParams(url).get('viewkey')
-  const info = await getStorageInfo({ url }) // 确保能取到标题
+  const info = await getLocalStorage([viewkey]) // 确保能取到标题
   title = title ? title : info.title || ''
   author = author ? author : info.author || ''
   if (!title || !author) {
@@ -173,9 +173,8 @@ async function onDownload([ { result } ] = [{}]) {
   return res
 }
 
-async function getStorageInfo({ url }) {
-  const viewkey = getSearchParams(url).get('viewkey')
-  const storageItem = await chrome.storage.local.get([viewkey])
+async function getLocalStorage(viewkey) {
+  const storageItem = await chrome.storage.local.get(viewkey)
   return storageItem[viewkey] || {}
 } 
 
