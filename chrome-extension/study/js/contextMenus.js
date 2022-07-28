@@ -164,11 +164,15 @@ async function onDownload([ { result } ] = [{}]) {
   // TODO 要重新下载的情形如何处理
   if (videoInfo.downloaded) {
     console.log(filename)
-    return Promise.resolve('Downloaded')
+    const { title, author } = videoInfo
+    if (!title || !author) {
+      await chrome.storage.local.set({ [viewkey]: Object.assign({}, result, videoInfo) })
+    }
+    return Promise.resolve({ ...result, msg: 'Downloaded' })
   }
 
   const res = await chrome.downloads.download({ url: downloadLink, filename })
-  await chrome.storage.local.set({ [viewkey]: Object.assign({}, videoInfo, { downloaded: true }) })
+  await chrome.storage.local.set({ [viewkey]: Object.assign({}, result, { downloaded: true }) })
   console.log(res, { videoInfoObj })
   return res
 }
