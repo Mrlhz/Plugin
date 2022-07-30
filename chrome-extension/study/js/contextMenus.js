@@ -6,6 +6,20 @@ import { executeScript, getCurrentTab, getAllWindow, wait, pathParse, safeFileNa
 import { getVideoDetailsHtml, getWellList, getHdLink, pages, setTitle } from './dom.js'
 import { getVideoBriefInfo } from './core/getVideoBriefInfo.js'
 import { downloadMovieImageList, downloadStarAvatarList } from './core/downloadManage.js'
+import strategy from './Strategy.js'
+
+strategy.on(downloadVideo)
+strategy.on('downloadMovieImage', downloadMovieImageList)
+strategy.on('downloadStarAvatar', downloadStarAvatarList)
+strategy.on('videoBriefInfo', getVideoBriefInfo)
+strategy.on('downloadAll', downloadAllTabVideo)
+
+strategy.on('openView', create91PageTabs)
+strategy.on(downloadPage)
+strategy.on('newTabs', async ({ currentTab, allTabs }) => {
+  await getVideoBriefInfo({ currentTab })
+  await newTabs({ currentTab, allTabs })
+})
 
 const menus = [
   {
@@ -60,27 +74,10 @@ export default function menuInit() {
 
 chrome.contextMenus.onClicked.addListener(async function (info, tab) {
   const allTabs = await getAllWindow()
-  const allTabUrls = allTabs.map(item => item.url)
   const { menuItemId } = info
-  console.log(info, tab, allTabs, allTabUrls)
-  if (info.menuItemId == 'downloadVideo') {
-    await downloadVideo()
-  } else if (info.menuItemId == 'newTabs') {
-    await getVideoBriefInfo(tab)
-    await newTabs(tab, allTabUrls)
-  } else if (menuItemId === 'videoBriefInfo') {
-    await getVideoBriefInfo(tab)
-  } else if (info.menuItemId === 'downloadAll') {
-    await downloadAllTabVideo({ allTabs })
-  } else if (info.menuItemId === 'openView') {
-    await create91PageTabs(tab, allTabUrls)
-  } else if (info.menuItemId === 'downloadPage') {
-    await downloadPage({ currentTab: tab })
-  } else if (info.menuItemId === 'downloadStarAvatar') {
-    await downloadStarAvatarList({ currentTab: tab })
-  } else if (info.menuItemId === 'downloadMovieImage') {
-    await downloadMovieImageList({ currentTab: tab })
-  }
+  console.log(info, tab, allTabs)
+
+  strategy.emit(menuItemId, { currentTab: tab, allTabs })
 })
 
 async function downloadVideo() {
@@ -134,7 +131,8 @@ async function getCurrentHdLinkLength(targetTabs = []) {
   return allTabUrls.filter(url => url.includes('view_video_hd'))
 }
 
-async function newTabs(currentTab, allTabUrls) {
+async function newTabs({ currentTab, allTabs }) {
+  const allTabUrls = allTabs.map(item => item.url)
   const [{ frameId, result }] = await executeScript(currentTab, getWellList)
   console.log(result)
   const task = result
@@ -160,14 +158,11 @@ async function onDownload([ { result } ] = [{}]) {
   }
   const videoInfoObj = await chrome.storage.local.get([viewkey])
   const videoInfo = videoInfoObj[viewkey] || {}
-  const filename = `91/[${author || ''}]-${safeFileName(title)}-${name}--${time}.mp4`
+  const dir = `91/${safeFileName(author, '')}`
+  const filename = `${dir}/[${author || ''}]-${safeFileName(title)}-${name}--${time}.mp4`
   // TODO 要重新下载的情形如何处理
   if (videoInfo.downloaded) {
     console.log(filename)
-    const { title, author } = videoInfo
-    if (!title || !author) {
-      await chrome.storage.local.set({ [viewkey]: Object.assign({}, result, videoInfo) })
-    }
     return Promise.resolve({ ...result, msg: 'Downloaded' })
   }
 
@@ -182,7 +177,8 @@ async function getLocalStorage(viewkey) {
   return storageItem[viewkey] || {}
 } 
 
-async function create91PageTabs(currentTab, allTabUrls) {
+async function create91PageTabs({ currentTab, allTabs }) {
+  const allTabUrls = allTabs.map(item => item.url)
   const [{ frameId, result }] = await executeScript(currentTab, pages)
   console.log(result)
   const task = result
