@@ -9,6 +9,7 @@ import { downloadMovieImageList, downloadStarAvatarList } from './core/downloadM
 import strategy from './Strategy.js'
 
 strategy.on(downloadVideo)
+strategy.on('overrideDownloadVideo', downloadVideo)
 strategy.on('downloadMovieImage', downloadMovieImageList)
 strategy.on('downloadStarAvatar', downloadStarAvatarList)
 strategy.on('videoBriefInfo', getVideoBriefInfo)
@@ -26,6 +27,11 @@ const menus = [
     'id': 'downloadVideo',
     'type': 'normal',
     'title': '下载视频',
+  },
+  {
+    'id': 'overrideDownloadVideo',
+    'type': 'normal',
+    'title': '覆盖下载视频',
   },
   {
     'id': 'newTabs',
@@ -76,16 +82,18 @@ chrome.contextMenus.onClicked.addListener(async function (info, tab) {
   const allTabs = await getAllWindow()
   const { menuItemId } = info
   console.log(info, tab, allTabs)
+  const overwrite = menuItemId === 'overrideDownloadVideo'
 
-  strategy.emit(menuItemId, { currentTab: tab, allTabs })
+  strategy.emit(menuItemId, { currentTab: tab, allTabs, overwrite })
 })
 
-async function downloadVideo() {
+async function downloadVideo(options = { overwrite: false }) {
+  console.log(options)
   const tab = await getCurrentTab()
   await executeScript(tab, getHdLink, [tab])
   await waitForPageComplete([tab])
   const res = await executeScript(tab, getVideoDetailsHtml, [{ emit: 'download_video' }])
-  const result = await onDownload(res)
+  const result = await onDownload(res, options)
   console.log(res, result)
 }
 
@@ -93,7 +101,7 @@ async function downloadAllTabVideo({ allTabs }) {
   // filter
   const targetTabs = allTabs.filter(tab => tab.url && tab.url.includes('view_video'))
   console.log({ targetTabs })
-  // todo 监听load事件
+  // TODO 监听load事件
   await waitForPageComplete(targetTabs)
   await wait(1000)
   const downloadInfoTask = targetTabs.map(tab => {
@@ -105,13 +113,13 @@ async function downloadAllTabVideo({ allTabs }) {
   const res = await Promise.all(downloadTask)
 }
 
-async function waitForPageComplete(targetTabs) {
+async function waitForPageComplete(targetTabs = []) {
   const ids = targetTabs.map(({ id }) => id)
   const tabTask = targetTabs.map(tab => executeScript(tab, getHdLink))
   const result = await Promise.all(tabTask)
   // 获取hd的 数量
   const hdLength = result.filter(([{ documentId, frameId, result }]) => result).length
-  let k = 0
+  let k = 0 // 循环次数，超过120次，即最多60s停止，防止死循环
   while(true) {
     const latestTabs = await getAllWindow()
     const latestTargetTabs = latestTabs.filter(({ id }) => ids.includes(id))
@@ -136,39 +144,38 @@ async function newTabs({ currentTab, allTabs }) {
   const [{ frameId, result }] = await executeScript(currentTab, getWellList)
   console.log(result)
   const task = result
-    .filter(item => !allTabUrls.includes(item.href)) // TODO href、url统一
+    .filter(item => !allTabUrls.includes(item.href))
     .map(item => chrome.tabs.create({ url: item.href }))
   const response = await Promise.all(task)
   console.log(response)
 }
 
-async function onDownload([ { result } ] = [{}]) {
+async function onDownload([ { result } ] = [{}], { overwrite = false } = {}) {
   if (!result || !result.downloadLink) {
     console.log('no file', result)
     return
   }
   let { downloadLink, title, time, author, url } = result
-  const { name } = pathParse(downloadLink) // video 原名，用于判断文件重复
   const viewkey = getSearchParams(url).get('viewkey')
-  const info = await getLocalStorage([viewkey]) // 确保能取到标题
-  title = title ? title : info.title || ''
-  author = author ? author : info.author || ''
+  const videoInfo = await getLocalStorage([viewkey]) // 确保能取到标题
+  title = title ? title : videoInfo.title || ''
+  author = author ? author : videoInfo.author || ''
   if (!title || !author) {
     return Promise.resolve(0)
   }
-  const videoInfoObj = await chrome.storage.local.get([viewkey])
-  const videoInfo = videoInfoObj[viewkey] || {}
   const dir = `91/${safeFileName(author, '')}`
+  const { name } = pathParse(downloadLink) // video 原名，用于判断文件重复
   const filename = `${dir}/[${author || ''}]-${safeFileName(title)}-${name}--${time}.mp4`
   // TODO 要重新下载的情形如何处理
-  if (videoInfo.downloaded) {
+  const downloaded = overwrite ? false : videoInfo.downloaded
+  if (downloaded) {
     console.log(filename)
     return Promise.resolve({ ...result, msg: 'Downloaded' })
   }
 
   const res = await chrome.downloads.download({ url: downloadLink, filename })
   await chrome.storage.local.set({ [viewkey]: Object.assign({}, result, { downloaded: true }) })
-  console.log(res, { videoInfoObj })
+  console.log(res, { videoInfo })
   return res
 }
 
