@@ -17,7 +17,6 @@ export class Strategy {
   // invok
   async emit(type, ...rest) {
     const fn = this.strategyMap[type]
-    console.log(type, rest, this.strategyMap, fn)
     if (typeof fn !== 'function') return
     const result = await fn(...rest)
     return result

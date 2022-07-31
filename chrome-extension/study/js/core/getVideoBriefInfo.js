@@ -1,7 +1,7 @@
 import { executeScript, wait, getSearchParams } from '../helper.js'
 import { getWellList } from '../dom.js'
 
-export async function getVideoBriefInfo(currentTab) {
+export async function getVideoBriefInfo({ currentTab }) {
   console.log({ currentTab })
   const [{ frameId, result }] = await executeScript(currentTab, getWellList)
   if (!Array.isArray(result)) {
