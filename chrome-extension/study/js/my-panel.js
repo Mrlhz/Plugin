@@ -1,4 +1,4 @@
-import { getVideoDetailsHtml } from './dom.js'
+import { getVideoDetailsHtml, getQuarkFiles } from './dom.js'
 import { executeScript, getCurrentTab, getSearchParams, getAllWindow } from './helper.js'
 
 
@@ -13,7 +13,7 @@ document.getElementById('get_video_details').addEventListener('click', async (e)
   const currentTab = await getCurrentTab()
   const isVideoPage = /view_video|viewkey/i.test(currentTab.url)
   if (isVideoPage) {
-    const [{ documentId, frameId, result }] = await executeScript(currentTab, getVideoDetailsHtml, [])
+    const [{ documentId, frameId, result }] = await executeScript(currentTab, getVideoDetailsHtml, ['获取视频信息'])
     const viewkey = getSearchParams(currentTab.url).get('viewkey')
     await updateVideoInfo(viewkey, result);
     chrome.runtime.sendMessage({ type: 'devtools', result, keys: chrome.devtools.inspectedWindow.tabId }, function (response) {
@@ -50,4 +50,10 @@ document.getElementById('get_tabs_links').addEventListener('click', async () => 
   chrome.runtime.sendMessage({ type: 'devtools', tabs, result }, function (response) {
     console.log('收到来自后台的回复：', response)
   })
+})
+
+document.getElementById('copy_quark_files').addEventListener('click', async () => {
+  const currentTab = await getCurrentTab()
+  const [{ documentId, frameId, result }] = await executeScript(currentTab, getQuarkFiles, ['复制夸克网盘文件列表'])
+  chrome.devtools.inspectedWindow.eval(`copy(${JSON.stringify(result)})`, () => {})
 })

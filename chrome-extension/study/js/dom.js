@@ -236,3 +236,10 @@ export function getMovieDetail() {
   }
   return getHtml()
 }
+
+export function getQuarkFiles() {
+  return [...document.querySelectorAll('.filename-text.editable-cell')]
+    .map(item => item.innerText)
+    .filter(text => text.includes('.rar'))
+    .join('\n')
+}
