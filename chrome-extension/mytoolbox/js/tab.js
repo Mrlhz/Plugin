@@ -34,13 +34,6 @@ const data = [{
     type: ""
   },
   {
-    url: "https://leetcode-cn.com/",
-    img: "../image/leetcode.ico",
-    title: "LeetCode",
-    desc: "全球极客挚爱的技术成长平台",
-    type: ""
-  },
-  {
     url: "https://regexper.com/",
     img: "../image/regexper.ico",
     title: "Regexper",
@@ -52,6 +45,13 @@ const data = [{
     img: "../image/node.png",
     title: "Node.js",
     desc: "Node.js 中文网",
+    type: ""
+  },
+  {
+    url: "https://nodejs.org/zh-cn/docs/",
+    img: "../image/node.png",
+    title: "Node.js",
+    desc: "Node.js documentation",
     type: ""
   },
   {
@@ -122,6 +122,13 @@ const data = [{
     img: "../image/bilibili.ico",
     title: "bilibili",
     desc: "国内领先的年轻人文化社区",
+    type: ""
+  },
+  {
+    url: "https://leetcode-cn.com/",
+    img: "../image/leetcode.ico",
+    title: "LeetCode",
+    desc: "全球极客挚爱的技术成长平台",
     type: ""
   },
   {

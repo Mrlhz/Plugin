@@ -103,7 +103,7 @@ async function downloadAllTabVideo({ allTabs }) {
   console.log({ targetTabs })
   // TODO 监听load事件
   await waitForPageComplete(targetTabs)
-  await wait(1000)
+  await wait(2000)
   const downloadInfoTask = targetTabs.map(tab => {
     return executeScript(tab, getVideoDetailsHtml, [{ emit: 'download_allTab_video' }])
   })
@@ -159,9 +159,9 @@ async function onDownload([ { result } ] = [{}], { overwrite = false } = {}) {
   const viewkey = getSearchParams(url).get('viewkey')
   const videoInfo = await getLocalStorage([viewkey]) // 确保能取到标题
   title = title ? title : videoInfo.title || ''
-  author = author ? author : videoInfo.author || ''
+  author = author ? author : videoInfo.author || '匿名'
   if (!title || !author) {
-    return Promise.resolve(0)
+    return Promise.resolve({ title, author })
   }
   const dir = `91/${safeFileName(author, '')}`
   const { name } = pathParse(downloadLink) // video 原名，用于判断文件重复
@@ -174,7 +174,8 @@ async function onDownload([ { result } ] = [{}], { overwrite = false } = {}) {
   }
 
   const res = await chrome.downloads.download({ url: downloadLink, filename })
-  await chrome.storage.local.set({ [viewkey]: Object.assign({}, result, { downloaded: true }) })
+  const videoStore = Object.assign({}, result, { downloaded: true, original: name })
+  await chrome.storage.local.set({ [viewkey]: videoStore })
   console.log(res, { videoInfo })
   return res
 }

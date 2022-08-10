@@ -20,7 +20,7 @@ async function getImagesList(params) {
   const exists = await fsManage('pathExists', Downloads.location)
   console.log(data)
   if (exists) {
-    await download(data.images, { size: 1 })
+    await download(data.images, { size: 20 })
   }
   if (!exists) {
     console.log({ msg: `${Downloads.location} not exist` } )
@@ -37,7 +37,6 @@ async function download(data = [], options = {}) {
 
   const result = []
   for (let index = 0, l = data.length; index < l; index += size) {
-    console.log({index})
     if (index === 0) {
       progressManage({ value: 0, max: l, text: `0 / ${l}`, percent: `${percent(0, l)}` })
     }
