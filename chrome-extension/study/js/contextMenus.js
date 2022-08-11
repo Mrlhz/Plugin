@@ -4,7 +4,7 @@
 
 import { executeScript, getCurrentTab, getAllWindow, wait, pathParse, safeFileName, getSearchParams } from './helper.js'
 import { getVideoDetailsHtml, getWellList, getHdLink, pages, setTitle } from './dom.js'
-import { getVideoBriefInfo } from './core/getVideoBriefInfo.js'
+import { getVideoBriefInfo, merge } from './core/getVideoBriefInfo.js'
 import { downloadMovieImageList, downloadStarAvatarList } from './core/downloadManage.js'
 import strategy from './Strategy.js'
 
@@ -174,9 +174,9 @@ async function onDownload([ { result } ] = [{}], { overwrite = false } = {}) {
   }
 
   const res = await chrome.downloads.download({ url: downloadLink, filename })
-  const videoStore = Object.assign({}, result, { downloaded: true, original: name })
+  const videoStore = merge({ ...result, downloaded: true, original: name }, videoInfo)
   await chrome.storage.local.set({ [viewkey]: videoStore })
-  console.log(res, { videoInfo })
+  console.log(res, { old: videoInfo, new: videoStore })
   return res
 }
 

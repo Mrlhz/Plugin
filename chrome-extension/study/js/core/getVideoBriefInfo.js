@@ -14,10 +14,20 @@ export async function getVideoBriefInfo({ currentTab }) {
     if (!viewkey) {
       continue
     }
-    const storageItem = await chrome.storage.local.get([viewkey])
-    if (!storageItem[viewkey]) {
-      await chrome.storage.local.set({ [viewkey]: item })
-    }
+    const storageObj = await chrome.storage.local.get([viewkey])
+    const storageItem = storageObj[viewkey] || {}
+    // 将视频简要数据与原有数据合并--更新[title, href, author]
+    const store = merge(item, storageItem)
+    await chrome.storage.local.set({ [viewkey]: store })
   }
   console.log(result)
+}
+
+export function merge(newValue, oldValue) {
+  let { title, href, author } = newValue
+  title = title ? title : oldValue.title
+  href = href ? href : oldValue.href
+  author = author ? author : oldValue.author
+  // ['author', 'downloadLink', 'downloaded', 'original', 'time', 'title', 'url']
+  return { ...oldValue, title, href, author }
 }
