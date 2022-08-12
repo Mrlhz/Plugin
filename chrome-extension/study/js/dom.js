@@ -45,11 +45,11 @@ export function getWellList() {
   return Array.from(wellList).map(item => {
     let videoTitle = item.querySelector('.video-title')
     let link = item.querySelector('a')
-    let href = link ? link.getAttribute('href') : ''
+    let url = link ? link.getAttribute('href') : ''
     let title = videoTitle ? videoTitle.innerText || '' : ''
     title = title.replace('[原创]', '').trim()
     const author = getListAuthor(item) || getHeaderAuthor()
-    return { title, href, author }
+    return { title, url, author }
   })
 }
 

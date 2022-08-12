@@ -2,10 +2,11 @@
  * @description 创建右键菜单
  */
 
-import { executeScript, getCurrentTab, getAllWindow, wait, pathParse, safeFileName, getSearchParams } from './helper.js'
-import { getVideoDetailsHtml, getWellList, getHdLink, pages, setTitle } from './dom.js'
-import { getVideoBriefInfo, merge } from './core/getVideoBriefInfo.js'
+import { executeScript, getCurrentTab, getAllWindow, wait, pathParse, safeFileName, getSearchParams, getLocalStorage } from './helper.js'
+import { getVideoDetailsHtml, getHdLink, pages, setTitle } from './dom.js'
+import { getVideoBriefInfo } from './core/getVideoBriefInfo.js'
 import { downloadMovieImageList, downloadStarAvatarList } from './core/downloadManage.js'
+import { newTabs } from './core/newTabs.js'
 import strategy from './Strategy.js'
 
 strategy.on(downloadVideo)
@@ -20,6 +21,11 @@ strategy.on(downloadPage)
 strategy.on('newTabs', async ({ currentTab, allTabs }) => {
   await getVideoBriefInfo({ currentTab })
   await newTabs({ currentTab, allTabs })
+})
+
+strategy.on('newTabsFilter', async ({ currentTab, allTabs }) => {
+  await getVideoBriefInfo({ currentTab })
+  await newTabs({ currentTab, allTabs }, { filter: true })
 })
 
 const menus = [
@@ -37,6 +43,11 @@ const menus = [
     'id': 'newTabs',
     'type': 'normal',
     'title': '标签页',
+  },
+  {
+    'id': 'newTabsFilter',
+    'type': 'normal',
+    'title': '过滤已下载标签页',
   },
   {
     'id': 'videoBriefInfo',
@@ -139,17 +150,6 @@ async function getCurrentHdLinkLength(targetTabs = []) {
   return allTabUrls.filter(url => url.includes('view_video_hd'))
 }
 
-async function newTabs({ currentTab, allTabs }) {
-  const allTabUrls = allTabs.map(item => item.url)
-  const [{ frameId, result }] = await executeScript(currentTab, getWellList)
-  console.log(result)
-  const task = result
-    .filter(item => !allTabUrls.includes(item.href))
-    .map(item => chrome.tabs.create({ url: item.href }))
-  const response = await Promise.all(task)
-  console.log(response)
-}
-
 async function onDownload([ { result } ] = [{}], { overwrite = false } = {}) {
   if (!result || !result.downloadLink) {
     console.log('no file', result)
@@ -174,16 +174,11 @@ async function onDownload([ { result } ] = [{}], { overwrite = false } = {}) {
   }
 
   const res = await chrome.downloads.download({ url: downloadLink, filename })
-  const videoStore = merge({ ...result, downloaded: true, original: name }, videoInfo)
+  const videoStore = { ...result, downloaded: true, original: name }
   await chrome.storage.local.set({ [viewkey]: videoStore })
   console.log(res, { old: videoInfo, new: videoStore })
   return res
 }
-
-async function getLocalStorage(viewkey) {
-  const storageItem = await chrome.storage.local.get(viewkey)
-  return storageItem[viewkey] || {}
-} 
 
 async function create91PageTabs({ currentTab, allTabs }) {
   const allTabUrls = allTabs.map(item => item.url)

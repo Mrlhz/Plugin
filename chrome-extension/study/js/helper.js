@@ -8,6 +8,11 @@ export function executeScript(tab, func, params = ['task']) {
   })
 }
 
+export async function getLocalStorage(viewkey) {
+  const storageItem = await chrome.storage.local.get(viewkey)
+  return storageItem[viewkey] || {}
+}
+
 export const wait = (delay = 0) => new Promise(resolve => { setTimeout(resolve, delay) })
 
 export async function getCurrentTab() {

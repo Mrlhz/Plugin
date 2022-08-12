@@ -9,25 +9,25 @@ export async function getVideoBriefInfo({ currentTab }) {
   }
   for (let i = 0, l = result.length; i < l; i++) {
     const item = result[i]
-    const { title, href } = item
-    const viewkey = getSearchParams(href).get('viewkey')
+    const { title, url } = item
+    const viewkey = getSearchParams(url).get('viewkey')
     if (!viewkey) {
       continue
     }
     const storageObj = await chrome.storage.local.get([viewkey])
     const storageItem = storageObj[viewkey] || {}
-    // 将视频简要数据与原有数据合并--更新[title, href, author]
-    const store = merge(item, storageItem)
-    await chrome.storage.local.set({ [viewkey]: store })
+    // 获取[title, url, author]基本信息
+    const baseInfo = getBasicInfo(item, storageItem)
+    await chrome.storage.local.set({ [viewkey]: { ...storageItem, ...baseInfo }  })
   }
   console.log(result)
 }
 
-export function merge(newValue, oldValue) {
-  let { title, href, author } = newValue
+export function getBasicInfo(newValue, oldValue) {
+  let { title, url, author } = newValue
   title = title ? title : oldValue.title
-  href = href ? href : oldValue.href
+  url = url ? url : oldValue.url
   author = author ? author : oldValue.author
   // ['author', 'downloadLink', 'downloaded', 'original', 'time', 'title', 'url']
-  return { ...oldValue, title, href, author }
+  return { title, url, author }
 }
