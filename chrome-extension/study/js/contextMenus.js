@@ -2,6 +2,7 @@
  * @description 创建右键菜单
  */
 
+import { menus } from '../config.js'
 import { executeScript, getCurrentTab, getAllWindow, wait, pathParse, safeFileName, getSearchParams, getLocalStorage } from './helper.js'
 import { getVideoDetailsHtml, getHdLink, pages, setTitle } from './dom.js'
 import { getVideoBriefInfo } from './core/getVideoBriefInfo.js'
@@ -27,59 +28,6 @@ strategy.on('newTabsFilter', async ({ currentTab, allTabs }) => {
   await getVideoBriefInfo({ currentTab })
   await newTabs({ currentTab, allTabs }, { filter: true })
 })
-
-const menus = [
-  {
-    'id': 'downloadVideo',
-    'type': 'normal',
-    'title': '下载视频',
-  },
-  {
-    'id': 'overrideDownloadVideo',
-    'type': 'normal',
-    'title': '覆盖下载视频',
-  },
-  {
-    'id': 'newTabs',
-    'type': 'normal',
-    'title': '标签页',
-  },
-  {
-    'id': 'newTabsFilter',
-    'type': 'normal',
-    'title': '过滤已下载标签页',
-  },
-  {
-    'id': 'videoBriefInfo',
-    'type': 'normal',
-    'title': '视频简要信息',
-  },
-  {
-    'id': 'downloadAll',
-    'type': 'normal',
-    'title': 'download all',
-  },
-  {
-    'id': 'openView',
-    'type': 'normal',
-    'title': 'open view',
-  },
-  {
-    'id': 'downloadPage',
-    'type': 'normal',
-    'title': 'download page',
-  },
-  {
-    'id': 'downloadStarAvatar',
-    'type': 'normal',
-    'title': 'download Star Avatar',
-  },
-  {
-    'id': 'downloadMovieImage',
-    'type': 'normal',
-    'title': 'download Movie Image',
-  }
-]
 
 export default function menuInit() {
   menus.forEach(menu => {
