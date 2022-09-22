@@ -3,9 +3,9 @@ import { getAvatarList, getMovieDetail } from '../dom.js'
 
 export async function downloadMovieImageList({ currentTab }) {
   const [{ frameId, result = [] }] = await executeScript(currentTab, getMovieDetail, [])
-  const { av, images } = result
+  const { av, star, images } = result
   console.log(result)
-  const filePath = 'avatar'
+  const filePath = Array.isArray(star) && star.length === 1 ? `${star[0].name}` : 'avatar'
   const tasks = images.map(item => {
     const { name, url } = item
     const filename = images.length === 1 ? `${filePath}/${name}` : `${filePath}/${av}/${name}`

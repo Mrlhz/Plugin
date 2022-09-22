@@ -65,7 +65,7 @@ export function pathParse(pathString) {
 
 export function safeFileName(str, replace = '-') {
   return str.replace(/[\\\/\:\*\?\"\<\>\|]/g, replace)
-    .replace(/~/g, '')
+    .replace(/~/g, '-')
 }
 
 /**

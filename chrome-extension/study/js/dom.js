@@ -42,9 +42,17 @@ export function getWellList() {
     return author || ''
   }
 
+  const getValidLink = (el) => {
+    const links = [...el.querySelectorAll('a')]
+    return links.find(a => {
+      const link = a.getAttribute('href')
+      return link && link.includes('http')
+    })
+  }
+
   return Array.from(wellList).map(item => {
     let videoTitle = item.querySelector('.video-title')
-    let link = item.querySelector('a')
+    let link = getValidLink(item)
     let url = link ? link.getAttribute('href') : ''
     let title = videoTitle ? videoTitle.innerText || '' : ''
     title = title.replace('[原创]', '').trim()

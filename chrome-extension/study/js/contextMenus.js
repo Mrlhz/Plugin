@@ -108,10 +108,11 @@ async function onDownload([ { result } ] = [{}], { overwrite = false } = {}) {
   const videoInfo = await getLocalStorage([viewkey]) // 确保能取到标题
   title = title ? title : videoInfo.title || ''
   author = author ? author : videoInfo.author || '匿名'
+  author = safeFileName(author, '-')
   if (!title || !author) {
     return Promise.resolve({ title, author })
   }
-  const dir = `91/${safeFileName(author, '')}`
+  const dir = `91/${author}`
   const { name } = pathParse(downloadLink) // video 原名，用于判断文件重复
   const filename = `${dir}/[${author || ''}]-${safeFileName(title)}-${name}--${time}.mp4`
   // TODO 要重新下载的情形如何处理
@@ -122,9 +123,11 @@ async function onDownload([ { result } ] = [{}], { overwrite = false } = {}) {
   }
 
   const res = await chrome.downloads.download({ url: downloadLink, filename })
-  const videoStore = { ...result, downloaded: true, original: name }
-  await chrome.storage.local.set({ [viewkey]: videoStore })
-  console.log(res, { old: videoInfo, new: videoStore })
+  if (res) {
+    const videoStore = { ...result, downloaded: true, original: name }
+    await chrome.storage.local.set({ [viewkey]: videoStore })
+    console.log(res, { old: videoInfo, new: videoStore })
+  }
   return res
 }
 
