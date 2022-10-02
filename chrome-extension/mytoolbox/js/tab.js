@@ -244,7 +244,7 @@ const data = [{
     type: ""
   },
   {
-    url: "https://w1.v2dns.xyz/user/",
+    url: "https://go.tofly.cyou/user",
     img: "../image/v2free.png",
     title: "V2free",
     desc: "科学上网",
