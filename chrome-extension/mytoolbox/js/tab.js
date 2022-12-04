@@ -277,6 +277,20 @@ const data = [{
     title: "Subtitle Cat",
     desc: "作品字幕搜索",
     type: ""
+  },
+  {
+    url: "https://bbs.mihoyo.com/ys/strategy/?bbs_presentation_style=no_header",
+    img: "../image/xp.png",
+    title: "原神-观测攻略",
+    desc: "旅行者创作平台-观测枢-原神wiki",
+    type: ""
+  },
+  {
+    url: "https://bbs.mihoyo.com/ys/obc/?bbs_presentation_style=no_header",
+    img: "../image/youla.png",
+    title: "原神-观测wiki",
+    desc: "旅行者创作平台-观测枢-原神wiki",
+    type: ""
   }
   // {
   //   url: "",
