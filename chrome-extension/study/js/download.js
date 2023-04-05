@@ -10,8 +10,22 @@ const starInputEl = document.getElementById('starInput')
 document.querySelector('#requestBtn').addEventListener('click', (e) => {
   // getImagesList({ 'idols': '水卜さくら' })
   const inputValue = starInputEl ? starInputEl.value.trim() : ''
+  const idolsEl = document.getElementById('idols')
+  const paramKey = idolsEl.checked ? 'idols' : 'series'
   if (inputValue) {
-    getImagesList({ 'idols': inputValue })
+    getImagesList({ [paramKey]: inputValue })
+  }
+})
+
+document.querySelector('#checkboxApp').addEventListener('click', (e) => {
+  const target = e.target
+  if (target.matches('input')) {
+    const id = target.getAttribute('id')
+    const checked = target.checked
+    const isIdols = id === 'idols'
+    const other = document.getElementById(isIdols ? 'series' : 'idols')
+    console.log(checked, id, other)
+    other.checked = !checked
   }
 })
 
