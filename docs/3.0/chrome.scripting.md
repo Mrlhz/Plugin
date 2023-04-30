@@ -60,6 +60,10 @@ function getTitle() {
   return document.title;
 }
 const tabId = getTabId();
+chrome.scripting.executeScript({
+  target: { tabId: 779 },
+  func: () => document.title
+})
 chrome.scripting.executeScript(
     {
       target: {tabId: tabId, allFrames: true},
