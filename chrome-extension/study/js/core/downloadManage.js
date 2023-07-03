@@ -15,6 +15,7 @@ export async function downloadMovieImageList({ currentTab }) {
   })
   const res = await Promise.all(tasks)
   console.log(res)
+  return result
 }
 
 export async function downloadStarAvatarList({ currentTab }) {
@@ -32,4 +33,30 @@ export async function downloadStarAvatarList({ currentTab }) {
   })
   const res = await Promise.all(tasks)
   console.log(res)
+}
+
+// https://developer.chrome.com/docs/extensions/reference/offscreen/#method-createDocument
+let creating; // A global promise to avoid concurrency issues
+export async function setupOffscreenDocument(path) {
+  // Check all windows controlled by the service worker to see if one 
+  // of them is the offscreen document with the given path
+  // const offscreenUrl = chrome.runtime.getURL(path);
+  const matchedClients = await clients.matchAll();
+  
+  if (matchedClients.some(item => item.url.includes('offscreen.html'))) {
+    return
+  }
+
+  // create offscreen document
+  if (creating) {
+    await creating;
+  } else {
+    creating = chrome.offscreen.createDocument({
+      url: '../../offscreen.html',
+      reasons: [chrome.offscreen.Reason.BLOBS],
+      justification: 'reason for needing the document',
+    });
+    await creating;
+    creating = null;
+  }
 }
