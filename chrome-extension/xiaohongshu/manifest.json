@@ -1,0 +1,49 @@
+{
+  "manifest_version": 3,
+  "version": "1.0",
+  "name": "图片批量下载 Extension",
+  "description": "Helper Extension",
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [{
+    "js" : ["js/content-script.js"],
+    "matches": [
+      "*://localhost/*",
+      "https://developer.mozilla.org/*",
+      "https://www.xiaohongshu.com/*"
+    ]
+  }],
+  "web_accessible_resources": [{
+    "resources": ["js/*"], 
+    "matches": ["<all_urls>"]
+  }],
+  "permissions": [
+    "activeTab",
+    "contextMenus",
+    "downloads",
+    "scripting",
+    "tabs",
+    "webRequest",
+    "storage",
+    "offscreen"
+  ],
+  "host_permissions": [
+    "*://*/*"
+  ],
+  "icons": {
+    "16": "images/xiaohongshu.png",
+    "48": "images/xiaohongshu.png",
+    "128": "images/xiaohongshu.png"
+  },
+  "action": {
+    "default_icon": {
+      "16": "images/xiaohongshu.png",
+      "24": "images/xiaohongshu.png",
+      "32": "images/xiaohongshu.png"
+    },
+    "default_title": "Extension",
+    "default_popup": "popup.html"
+  }
+}
