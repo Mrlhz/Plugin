@@ -14,16 +14,16 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   if (cmd === 'background_to_offscreen') {
     main(result)
   } else if (cmd === 'background_to_offscreen__batch') {
-    create(result)
+    create(request)
   }
   sendResponse({ message: '我是 offscreen，已收到你的消息：', request })
 })
 
-async function create(result) {
+async function create({ result, filename }) {
   const text = JSON.stringify(result, null, 2)
   const blob = new Blob([text], {
     type: "application/json"
   })
   const url = URL.createObjectURL(blob)
-  await chrome.runtime.sendMessage({ cmd: 'offscreen_to_background__batch', url, result })
+  await chrome.runtime.sendMessage({ cmd: 'offscreen_to_background__batch', url, result, filename })
 }

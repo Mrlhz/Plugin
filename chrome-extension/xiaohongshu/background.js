@@ -1,6 +1,6 @@
 import { getNoteDetail } from './js/dom.js'
 import { setupOffscreenDocument, pathParse, sleep, safeFileName } from './js/utils.js'
-import { batchDownload, batchDownloadJSONFile } from './js/batch.js'
+import { batchDownload, batchDownloadJSONFile, downloadJSONFile } from './js/batch.js'
 
 const menus = [
   {
@@ -49,7 +49,7 @@ chrome.contextMenus.onClicked.addListener(async function (info, tab) {
 
 chrome.runtime.onMessage.addListener(async function (request, sender, sendResponse) {
   console.log('消息：', request, sender, sendResponse)
-  const { cmd, url, result } = request
+  const { cmd, url, result, filename } = request
 
   // download json file
   if (cmd === 'offscreen_to_background') {
@@ -67,7 +67,10 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
 
   // TODO
   if (cmd === 'offscreen_to_background__batch') {
-    batchDownloadJSONFile({ url, note: result })
+    const { filename }  = request
+    filename
+    ? downloadJSONFile({ ...request, note: result })
+    : batchDownloadJSONFile({ ...request, note: result })
   }
   if (cmd === 'content_script_to_background') {
     console.log('content-script: ', result)
