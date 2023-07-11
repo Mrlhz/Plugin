@@ -97,3 +97,9 @@ export function pathParse(pathString) {
 export function safeFileName(str, replace = '-') {
   return str.replace(/[\\\/\:\*\?\"\<\>\|]/g, replace)
 }
+
+export function sleep(delay) {
+  return new Promise(resolve => {
+    setTimeout(resolve, delay)
+  })
+}

@@ -15,7 +15,23 @@ if (Object.keys(val).length) {
 
   console.log(result)
   window.postMessage({
+    cmd: 'inject_script_to_content_script',
+    url: location.href,
     note: { ...result }
+   }, '*')
+}
+
+// 发消息给bg存列表数据
+if (location.href.includes('//www.xiaohongshu.com/user/profile')) {
+  let result = JSON.parse(JSON.stringify(window?.__INITIAL_STATE__?.user?.notes?.value))
+  if (Array.isArray(result)) {
+    result = result.flat(1)
+  }
+  console.log(result.length)
+  window.postMessage({
+    cmd: 'inject_script_to_content_script__list',
+    url: location.href,
+    note: result
    }, '*')
 }
 

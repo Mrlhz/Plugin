@@ -15,7 +15,13 @@ injectCustomScript('js/inject-script.js')
 
 
 window.addEventListener('message', async function (e) {
-  console.log(e.data);
+  console.log(e);
   console.log(chrome)
-  await chrome.runtime.sendMessage({ cmd: 'content_script_to_background', url: location.url, result: e.data })
+  const cmdMap = {
+    inject_script_to_content_script: 'content_script_to_background',
+    inject_script_to_content_script__list: 'content_script_to_background__list'
+  }
+  if (e?.data?.cmd.startsWith('inject_script_to_content_script')) {
+    await chrome.runtime.sendMessage({ cmd: cmdMap[e?.data?.cmd], url: location.href, result: e.data })
+  }
 }, false)
