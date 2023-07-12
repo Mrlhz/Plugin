@@ -84,9 +84,13 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
     console.log('content-script: ', result)
     const { url, note } = result
     const obj = await chrome.storage.local.get(url)
-    if (obj && obj[url]) {
+    if (obj && Array.isArray(obj[url])) {
       console.log({ ...obj })
-      // TODO 追加处理 或者 用数据库
+      // 追加处理
+      // TODO 用数据库
+      const storageData = obj[url]
+      const res = append(storageData, note || [])
+      await chrome.storage.local.set({ [url]: res })
       return
     }
     if (url && note) {
@@ -98,6 +102,21 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
   sendResponse({ message: '我是后台，已收到你的消息：', request })
 })
 
+function append(oldValue = [], newValue = []) {
+  const result = [...oldValue]
+  const m = {}
+  oldValue.forEach(item => {
+    m[item.id] = item
+  })
+  for (let index = 0, len = newValue.length; index < len; index++) {
+    const item = newValue[index]
+    if (!m[item.id]) {
+      result.push(item)
+    }
+  }
+
+  return result
+}
 
 async function downloadImage(result) {
   const { url, title, name: namePath, images } = result
@@ -131,33 +150,27 @@ async function openNoteList(tab) {
     return chrome.tabs.create({ url: url })
   }
   const list = res[tab.url]
-  // .slice(0, 3)
-  // if (Array.isArray(list) && list.length < 10) {
-  //   const result = list
-  //   const task = result
-  //   // .filter(item => !allTabUrls.includes(item.url))
-  //   .map(create)
-  //   const response = await Promise.all(task)
-  // }
-  for (let index = 0, len = list.length; index < len; index++) {
-    const item = list[index];
-    const { id, noteCard } = item
-    const { user } = noteCard
-    const url = `https://www.xiaohongshu.com/user/profile/${user.userId}/${id}` // == `https://www.xiaohongshu.com/explore/${id}`
-    const note = await chrome.storage.local.get(`https://www.xiaohongshu.com/explore/${id}`)
-    if (note && note[url]) {
-      console.log('已存在: ', note.url)
-      continue
-    }
-    const tab = await create(url)
-    console.log(tab)
-    await sleep(5000)
-    try {
-      tab.id && await chrome.tabs.remove(tab.id)
-    } catch (error) {
-      console.log(error, tab)
-    }
-    await sleep(1000)
+  if (!Array.isArray(list)) {
+    console.log('fail: ', list, url)
+    return
+  }
+
+  while(list.length) {
+    const items = list.splice(0, 5)
+    const tasks = items.map(item => {
+      const { id, noteCard } = item
+      const { user } = noteCard
+      const url = `https://www.xiaohongshu.com/user/profile/${user.userId}/${id}` // == `https://www.xiaohongshu.com/explore/${id}`
+      return chrome.tabs.create({ url: url })
+    })
+
+    const tabs = await Promise.all(tasks)
+    console.log({ tabs })
+    await sleep(1500 * items.length)
+
+    const removeTabs = tabs.map(({ id }) => chrome.tabs.remove(id))
+    await Promise.allSettled(removeTabs)
+    await sleep(1500)
   }
 }
 

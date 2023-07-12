@@ -23,9 +23,15 @@ export async function batchDownload(tab) {
 
   for (let index = 0, len = result.length; index < len; index++) {
     const note = result[index];
-    if (note) {
+    if (!note) {
+      console.log('continue', note)
+      continue
+    }
+    try {
       await downloadImageBatch(note)
       await sleep(1500)
+    } catch (error) {
+      console.log(error, note, index)
     }
   }
 }
