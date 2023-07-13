@@ -154,9 +154,21 @@ async function openNoteList(tab) {
     console.log('fail: ', list, url)
     return
   }
+  // 过滤已存储的数据
+  const filterList = []
+  for (let index = 0; index < list.length; index++) {
+    const item = list[index];
+    const { id, noteCard } = item
+    const url = `https://www.xiaohongshu.com/explore/${id}`
+    const note = await chrome.storage.local.get(url)
+    if (!note || !note[url]) {
+      filterList.push(item)
+    }
+  }
 
-  while(list.length) {
-    const items = list.splice(0, 5)
+  console.log('filterList', filterList)
+  while(filterList.length) {
+    const items = filterList.splice(0, 5)
     const tasks = items.map(item => {
       const { id, noteCard } = item
       const { user } = noteCard
@@ -166,10 +178,14 @@ async function openNoteList(tab) {
 
     const tabs = await Promise.all(tasks)
     console.log({ tabs })
-    await sleep(1500 * items.length)
+    await sleep(3000 * items.length)
 
-    const removeTabs = tabs.map(({ id }) => chrome.tabs.remove(id))
-    await Promise.allSettled(removeTabs)
+    try {
+      const removeTabs = tabs.map(({ id }) => chrome.tabs.remove(id))
+      await Promise.allSettled(removeTabs)
+    } catch (error) {
+      console.log(error)
+    }
     await sleep(1500)
   }
 }

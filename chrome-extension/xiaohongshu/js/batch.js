@@ -55,19 +55,16 @@ export async function downloadImageBatch(note) {
       filename: ext ? `${nickname}/${safeTitle}-${i + 1}${ext}` : `${nickname}/${safeTitle}-${i + 1}.jpg`
     }
   })
-  // const tasks = list.map(({ url, filename }) => {
-  //   return chrome.downloads.download({ url, filename }).then(downloadId => {
-  //     return { downloadId }
-  //   })
-  // })
-  // return Promise.allSettled(tasks)
-  for (let index = 0; index < list.length; index++) {
-    const { url, filename } = list[index];
-    await chrome.downloads.download({ url, filename }).then(downloadId => {
-      return { downloadId }
+
+  while(list.length) {
+    const items = list.splice(0, 2)
+    const tasks = items.map(({ url, filename }) => {
+      return chrome.downloads.download({ url, filename }).then(downloadId => {
+        return { downloadId }
+      })
     })
+    await Promise.allSettled(tasks)
     await sleep(1500)
-    
   }
 }
 
