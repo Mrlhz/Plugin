@@ -167,6 +167,7 @@ async function openNoteList(tab) {
   }
 
   console.log('filterList', filterList)
+  const total = filterList.length
   while(filterList.length) {
     const items = filterList.splice(0, 5)
     const tasks = items.map(item => {
@@ -177,7 +178,7 @@ async function openNoteList(tab) {
     })
 
     const tabs = await Promise.all(tasks)
-    console.log({ tabs })
+    console.log(`${filterList.length}/${total}`, { tabs })
     await sleep(3000 * items.length)
 
     try {

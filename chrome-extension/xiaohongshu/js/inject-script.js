@@ -21,6 +21,7 @@ if (Object.keys(val).length) {
    }, '*')
 }
 
+function saveList() {
 // 发消息给bg存列表数据
 if (location.href.includes('//www.xiaohongshu.com/user/profile')) {
   let result = JSON.parse(JSON.stringify(window?.__INITIAL_STATE__?.user?.notes?.value))
@@ -33,5 +34,15 @@ if (location.href.includes('//www.xiaohongshu.com/user/profile')) {
     url: location.href,
     note: result
    }, '*')
+  }
 }
 
+saveList()
+
+
+window.addEventListener('message', async function (e) {
+  console.log(e);
+  if (e?.data?.cmd.startsWith('content_script_to_inject_script')) {
+    saveList()
+  }
+}, false)

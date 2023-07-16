@@ -12,6 +12,7 @@ function injectCustomScript(jsPath) {
 }
 
 injectCustomScript('js/inject-script.js')
+initCustomButton()
 
 
 window.addEventListener('message', async function (e) {
@@ -25,3 +26,20 @@ window.addEventListener('message', async function (e) {
     await chrome.runtime.sendMessage({ cmd: cmdMap[e?.data?.cmd], url: location.href, result: e.data })
   }
 }, false)
+
+function initCustomButton() {
+  if (document.getElementById('chrome_plugin_xhs_btn')) {
+    return
+  }
+	const btn = document.createElement('div')
+  btn.id = 'chrome_plugin_xhs_btn'
+  btn.className = 'chrome_plugin_xhs_btn'
+  btn.innerText = '获取列表'
+  document.body.appendChild(btn)
+
+  btn.addEventListener('click', function() {
+    document.body.scrollIntoView({ behavior: "smooth", block: "end" })
+    console.log('click!')
+    window.postMessage({ cmd: 'content_script_to_inject_script' }, '*')
+  }, false)
+}

@@ -8,6 +8,9 @@
     "type": "module"
   },
   "content_scripts": [{
+    "css": [
+      "css/xhs.css"
+    ],
     "js" : ["js/content-script.js"],
     "matches": [
       "*://localhost/*",
