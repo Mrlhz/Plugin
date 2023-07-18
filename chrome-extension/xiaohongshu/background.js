@@ -178,7 +178,7 @@ async function openNoteList(tab) {
     })
 
     const tabs = await Promise.all(tasks)
-    console.log(`${filterList.length}/${total}`, { tabs })
+    console.log(`${total - filterList.length}/${total}`, { tabs })
     await sleep(3000 * items.length)
 
     try {
