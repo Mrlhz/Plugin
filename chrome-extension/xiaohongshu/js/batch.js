@@ -1,4 +1,4 @@
-import { pathParse, safeFileName, sleep } from './utils.js'
+import { pathParse, safeFileName, sleep, formatDate } from './utils.js'
 
 // 批量下载
 export async function batchDownload(tab) {
@@ -16,10 +16,10 @@ export async function batchDownload(tab) {
   const result = await Promise.all(taskList).then(res => res.flat(1).map(item => Object.values(item)[0]))
   console.log(result)
 
-  const { nickName } = getUser(list[0])
-  const listFileName = `${nickName}/${nickName}_list.json`
-  const detailFileName = `${nickName}/${nickName}_deatil_list.json`
-  const [r1, r2] = await pathExists([ 
+  const { nickname } = getUser(list[0])
+  const listFileName = `${nickname}/${nickname}_list.json`
+  const detailFileName = `${nickname}/${nickname}_deatil_list.json`
+  const [r1, r2] = await pathExists([
     { filename: listFileName },
     { filename: detailFileName }
   ])
@@ -31,6 +31,7 @@ export async function batchDownload(tab) {
     await chrome.runtime.sendMessage({ cmd: 'background_to_offscreen__batch', result: result, filename: detailFileName })
   }
 
+  const imagesList = []
   for (let index = 0, len = result.length; index < len; index++) {
     const note = result[index];
     if (!note) {
@@ -38,33 +39,23 @@ export async function batchDownload(tab) {
       continue
     }
     try {
-      await downloadImageBatch(note)
+      // await downloadImageBatch(note)
+      imagesList.push(...getSingleNoteImage(note))
       // await sleep(1500)
     } catch (error) {
       console.log(error, note, index)
     }
   }
+
+  console.log({ imagesList })
+  await downloadImageBatch(imagesList)
 }
 
-export async function downloadImageBatch(note) {
-  if (!note || typeof note !== 'object') {
-    console.log('fail: ', note)
+export async function downloadImageBatch(list) {
+  if (!Array.isArray(list)) {
+    console.log('fail: ', list)
     return
-  } 
-  const { user, title, imageList } = note
-  const { nickname } = user
-  const list = imageList.map((image, i) => {
-    const url = `https://sns-img-qc.xhscdn.com/${image.traceId}`
-    const { name, ext, base } = pathParse(url)
-    const safeTitle = safeFileName(title)
-    return {
-      url,
-      // 创建标题文件夹单独存放
-      // filename: ext ? `${nickname}/${safeTitle}/${base}` : `${nickname}/${safeTitle}/${name}.jpg`
-      // 存放到用户名文件夹
-      filename: ext ? `${nickname}/${safeTitle}-${i + 1}${ext}` : `${nickname}/${safeTitle}-${i + 1}.jpg`
-    }
-  })
+  }
 
   const res = await pathExists(list)
   const filterList = res.filter(({ exist }) => !exist)
@@ -80,6 +71,25 @@ export async function downloadImageBatch(note) {
     await Promise.allSettled(tasks)
     await sleep(2000)
   }
+}
+
+function getSingleNoteImage(note) {
+  const { user, title, imageList, time, noteId } = note
+  const { nickname } = user
+  const list = imageList.map((image, i) => {
+    const url = `https://sns-img-qc.xhscdn.com/${image.traceId}`
+    const { name, ext, base } = pathParse(url)
+    const safeTitle = `${safeFileName(title)}-${formatDate(time)}__${noteId}`
+    return {
+      url,
+      // 创建标题文件夹单独存放
+      // filename: ext ? `${nickname}/${safeTitle}/${base}` : `${nickname}/${safeTitle}/${name}.jpg`
+      // 存放到用户名文件夹
+      filename: ext ? `${nickname}/${safeTitle}-${i + 1}${ext}` : `${nickname}/${safeTitle}-${i + 1}.jpg`
+    }
+  })
+
+  return list
 }
 
 // offscreen_to_background__batch

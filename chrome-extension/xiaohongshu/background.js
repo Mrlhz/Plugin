@@ -151,7 +151,7 @@ async function openNoteList(tab) {
   }
   const list = res[tab.url]
   if (!Array.isArray(list)) {
-    console.log('fail: ', list, url)
+    console.log('fail: ', list, tab.url)
     return
   }
   // 过滤已存储的数据

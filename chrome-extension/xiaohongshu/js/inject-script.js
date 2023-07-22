@@ -7,18 +7,25 @@ document.addEventListener('click', (e) => {
   console.log((window?.__INITIAL_STATE__?.note?.note?.value || window?.__INITIAL_STATE__?.note?.note || {}));
 }, false)
 
-console.log('send', window?.__INITIAL_STATE__?.note?.note?.value)
-const val = { ...window?.__INITIAL_STATE__?.note?.note?.value }
+console.log('send', window?.__INITIAL_STATE__?.note?.noteDetailMap)
 
-if (Object.keys(val).length) {
-  const result = JSON.parse(JSON.stringify(val))
+function saveNoe() {
+  const noteDetailMap = { ...window?.__INITIAL_STATE__?.note?.noteDetailMap }
+  const [{ note }] = Object.values(noteDetailMap)
+  if (note) {
+    const result = JSON.parse(JSON.stringify(note))
+  
+    console.log(result)
+    window.postMessage({
+      cmd: 'inject_script_to_content_script',
+      url: location.href,
+      note: { ...result }
+     }, '*')
+  }
+}
 
-  console.log(result)
-  window.postMessage({
-    cmd: 'inject_script_to_content_script',
-    url: location.href,
-    note: { ...result }
-   }, '*')
+if (location.href.includes('//www.xiaohongshu.com/explore/')) {
+  saveNoe()
 }
 
 function saveList() {
