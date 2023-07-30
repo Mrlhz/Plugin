@@ -177,9 +177,14 @@ async function openNoteList(tab) {
       return chrome.tabs.create({ url: url })
     })
 
-    const tabs = await Promise.all(tasks)
-    console.log(`${total - filterList.length}/${total}`, { tabs })
-    await sleep(3000 * items.length)
+    let tabs
+    try {
+      tabs = await Promise.all(tasks)
+      console.log(`${total - filterList.length}/${total}`, { tabs })
+      await sleep(3000 * items.length)
+    } catch (error) {
+      console.log(error)
+    }
 
     try {
       const removeTabs = tabs.map(({ id }) => chrome.tabs.remove(id))
