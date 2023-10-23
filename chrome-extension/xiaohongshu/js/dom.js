@@ -24,13 +24,11 @@ export function getNoteDetail() {
 
   function getHtml() {
     // 1.用户信息
-    const infoEle = document.querySelector('.author .info .name')
-    const nameSpan = infoEle.querySelector('span')
-    const name = nameSpan ? nameSpan.innerText?.trim() : infoEle.innerText?.trim()
-    const href = infoEle.getAttribute('href') || ''
-    const url = href.includes('http') ? href : `${location.origin}${href}`
+    const userNameEl = document.querySelector('.user-basic .user-nickname .user-name')
+    const name = userNameEl ? userNameEl.innerText?.trim() : ''
+    const url = location.href
     // 2. 标题
-    const title = document.querySelector('#detail-title')
+    const title = document.querySelector('.user-desc')
     // 3. 描述
     const desc = [...document.querySelectorAll('.note-content .desc')].map(item => item.innerText?.trim())
     // 4. 图片

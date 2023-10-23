@@ -12,7 +12,9 @@ export async function batchDownload(tab) {
     console.log('list null: ', list)
     return
   }
-  const taskList = list.map(({ id }) => chrome.storage.local.get(`https://www.xiaohongshu.com/explore/${id}`))
+  const taskList = list
+    .filter((item) => item && item.id)
+    .map(({ id }) => chrome.storage.local.get(`https://www.xiaohongshu.com/explore/${id}`))
   const result = await Promise.all(taskList).then(res => res.flat(1).map(item => Object.values(item)[0]))
   console.log(result)
 
@@ -76,9 +78,15 @@ export async function downloadImageBatch(list) {
 function getSingleNoteImage(note) {
   const { user, title, imageList, time, noteId } = note
   const { nickname } = user
+  if (!Array.isArray(imageList)) {
+    return []
+  }
   const list = imageList.map((image, i) => {
-    const url = `https://sns-img-qc.xhscdn.com/${image.traceId}`
-    const { name, ext, base } = pathParse(url)
+    const { infoList } = image
+    const infoItem = infoList.filter(item => item.imageScene === 'CRD_WM_WEBP')[0] || {}
+
+    const { url } = infoItem
+    const { name, ext, base } = url.includes('!') ? pathParse(url.split('!')[0]) : pathParse(url)
     const safeTitle = `${safeFileName(title)}-${formatDate(time)}__${noteId}`
     return {
       url,
