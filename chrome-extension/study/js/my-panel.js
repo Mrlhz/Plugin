@@ -39,6 +39,14 @@ document.getElementById('copy_current_tab_href').addEventListener('click', () =>
   chrome.devtools.inspectedWindow.eval('copy(decodeURIComponent(location.href))', () => {})
 })
 
+// 当前页签地址
+document.getElementById('get_current_tab_link').addEventListener('click', async () => {
+  const currentTab = await getCurrentTab()
+  const { title, url } = currentTab
+  const result = `- [${title}](${url})`
+  chrome.devtools.inspectedWindow.eval(`copy(${JSON.stringify(result)})`, () => {})
+})
+
 // 复制所有页签的title、url，过滤掉chrome开头的页签
 document.getElementById('get_tabs_links').addEventListener('click', async () => {
   const tabs = await getAllWindow()
