@@ -1,0 +1,51 @@
+{
+  "manifest_version": 3,
+  "version": "1.0",
+  "name": "Topic Extension",
+  "description": "Topic Extension",
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [{
+    "css": [
+      "css/topic.css"
+    ],
+    "js" : ["js/content-script.js"],
+    "matches": [
+      "*://localhost/*",
+      "*://*/*"
+    ]
+  }],
+  "web_accessible_resources": [{
+    "resources": ["js/*"], 
+    "matches": ["<all_urls>"]
+  }],
+  "permissions": [
+    "activeTab",
+    "contextMenus",
+    "downloads",
+    "scripting",
+    "tabs",
+    "webRequest",
+    "storage",
+    "offscreen"
+  ],
+  "host_permissions": [
+    "*://*/*"
+  ],
+  "icons": {
+    "16": "images/icon-large.png",
+    "48": "images/icon-large.png",
+    "128": "images/icon-large.png"
+  },
+  "action": {
+    "default_icon": {
+      "16": "images/icon-large.png",
+      "24": "images/icon-large.png",
+      "32": "images/icon-large.png"
+    },
+    "default_title": "Extension",
+    "default_popup": "popup.html"
+  }
+}
