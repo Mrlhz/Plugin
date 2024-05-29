@@ -24,15 +24,69 @@ async function create(result = []) {
     const url = URL.createObjectURL(blob)
 
     element.blob = url
+
+    // TODO 改成配置选项
+    const html = setImageURL(text)
+    const htmlBlob = new Blob([html], {
+      type: "text/html"
+    })
+    const htmlBlobUrl = URL.createObjectURL(htmlBlob)
+    element.htmlBlob = htmlBlobUrl
   }
 
   await chrome.runtime.sendMessage({ cmd: OFFSCREEN_TO_BACKGROUND, result })
 }
 
+
+const i = ['attachimg.gif', 'back.gif']
 function setImageURL(html) {
 
   const div = document.createElement('div')
   div.innerHTML = html;
 
-  [...div.querySelectorAll('img')]
+  [...div.querySelectorAll('img')].forEach(image => {
+    const src = image.getAttribute('src')
+    const { base } = pathParse(src)
+    if (src && !i.includes(base)) {
+      image.setAttribute('src', `images/${base}`)
+    }
+  })
+
+  return div.innerHTML
+}
+
+
+/**
+ * @description Node.js path.parse(pathString) ponyfill.
+ * @link https://github.com/jbgutierrez/path-parse
+ * @export
+ * @param {*} pathString
+ * @returns
+ * {
+ *   root : '/',
+ *   dir : '/home/user/dir',
+ *   base : 'file.txt',
+ *   ext : '.txt',
+ *   name : 'file'
+ *  }
+ */
+function pathParse(pathString) {
+  if (typeof pathString !== 'string') {
+    throw new TypeError("Parameter 'pathString' must be a string, not " + typeof pathString)
+  }
+  var allParts = win32SplitPath(pathString)
+  if (!allParts || allParts.length !== 5) {
+    throw new TypeError("Invalid path '" + pathString + "'")
+  }
+  return {
+    root: allParts[1],
+    dir: allParts[0] === allParts[1] ? allParts[0] : allParts[0].slice(0, -1),
+    base: allParts[2],
+    ext: allParts[4],
+    name: allParts[3]
+  }
+  function win32SplitPath(filename) {
+    const splitWindowsRe = /^(((?:[a-zA-Z]:|[\\\/]{2}[^\\\/]+[\\\/]+[^\\\/]+)?[\\\/]?)(?:[^\\\/]*[\\\/])*)((\.{1,2}|[^\\\/]+?|)(\.[^.\/\\]*|))[\\\/]*$/;
+    return splitWindowsRe.exec(filename).slice(1)
+  }
 }
