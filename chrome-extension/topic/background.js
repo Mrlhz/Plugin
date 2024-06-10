@@ -7,8 +7,15 @@ const TOPIC_LIST = 'TOPIC_LIST'
 const BACKGROUND_TO_OFFSCREEN = 'BACKGROUND_TO_OFFSCREEN'
 const OFFSCREEN_TO_BACKGROUND = 'OFFSCREEN_TO_BACKGROUND'
 
+// 根据作者名称建立文件夹
+const TOPIC_SINGLE = 'TOPIC_SINGLE'
+const TOPIC_LIST_SINGLE = 'TOPIC_LIST_SINGLE'
+const BACKGROUND_TO_OFFSCREEN__SINGLE = 'BACKGROUND_TO_OFFSCREEN__SINGLE'
+const OFFSCREEN_TO_BACKGROUND__SINGLE = 'OFFSCREEN_TO_BACKGROUND__SINGLE'
+
 const outputPath = 'md' // markdown
 const outputImagesPath = `${outputPath}/images`
+const filters = ['back.gif']
 
 const menus = [
   {
@@ -20,6 +27,16 @@ const menus = [
     'id': TOPIC_LIST,
     'type': 'normal',
     'title': 'topic List'
+  },
+  {
+    'id': TOPIC_SINGLE,
+    'type': 'normal',
+    'title': 'topic single'
+  },
+  {
+    'id': TOPIC_LIST_SINGLE,
+    'type': 'normal',
+    'title': 'topic List single'
   }
 ]
 
@@ -42,15 +59,30 @@ chrome.contextMenus.onClicked.addListener(async function (info, tab) {
     const response = await chrome.runtime.sendMessage({ cmd: BACKGROUND_TO_OFFSCREEN, result: list })
   }
 
-  if (menuItemId === TOPIC_LIST) {
-    const tabs = await getAllWindow()
-    const filterTabs = tabs.filter(tab => tab.url.includes('viewthread.php?tid='))
+  const tabs = await getAllWindow()
+  const filterTabs = tabs.filter(tab => tab.url.includes('viewthread.php?tid='))
 
-    const list = await getTopicList(filterTabs)
-    console.log({ list })
+  const list = await getTopicList(filterTabs)
+  console.log({ list })
+  if (menuItemId === TOPIC_LIST) {
     await setupOffscreenDocument()
 
     const response = await chrome.runtime.sendMessage({ cmd: BACKGROUND_TO_OFFSCREEN, result: list })
+    console.log('收到来自 offscreen 的回复：', response)
+
+  }
+
+  if (menuItemId === TOPIC_SINGLE) {
+    const list = await getTopicList([tab])
+    await setupOffscreenDocument()
+
+    const response = await chrome.runtime.sendMessage({ cmd: BACKGROUND_TO_OFFSCREEN__SINGLE, result: list })
+  }
+  
+  if (menuItemId === TOPIC_LIST_SINGLE) {
+    await setupOffscreenDocument()
+
+    const response = await chrome.runtime.sendMessage({ cmd: BACKGROUND_TO_OFFSCREEN__SINGLE, result: list })
     console.log('收到来自 offscreen 的回复：', response)
 
   }
@@ -74,43 +106,94 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
 
   // download file
   if (cmd === OFFSCREEN_TO_BACKGROUND) {
-    const tasks = result.map((item) => {
-      const { title, topic, blob, images } = item
-      const filename = `${outputPath}/${title}.md`
-      return chrome.downloads.download({ url: blob, filename }).then(downloadId => {
-        return { downloadId }
-      })
+    await downloadFile({
+      list: result,
+      dir: outputPath,
+      ext: '.md',
+      blobKey: 'blob'
+    });
+    await downloadFile({
+      list: result,
+      dir: outputPath,
+      ext: '.html',
+      blobKey: 'htmlBlob'
     })
-    await Promise.allSettled(tasks)
-    await downloadImage(result)
-    // TODO
-    const htmlTasks = result.map((item) => {
-      const { title, htmlBlob } = item
-      const filename = `${outputPath}/${title}.html`
-      return chrome.downloads.download({ url: htmlBlob, filename }).then(downloadId => {
-        return { downloadId }
-      })
+    await downloadImage(result, outputImagesPath)
+  }
+
+  if (OFFSCREEN_TO_BACKGROUND__SINGLE) {
+    await downloadFile({
+      list: result,
+      dir: outputPath,
+      dirKey: 'author',
+      ext: '.md',
+      blobKey: 'blob'
+    });
+    await downloadFile({
+      list: result,
+      dir: outputPath,
+      dirKey: 'author',
+      ext: '.html',
+      blobKey: 'htmlBlob'
     })
-    await Promise.allSettled(htmlTasks)
+    await downloadSingleImage(result, outputPath);
   }
 
   sendResponse({ message: '我是后台，已收到你的消息：', request })
 })
 
-async function downloadImage(list = []) {
+async function downloadFile(options) {
+  const { list = [], dir, dirKey, ext = '.md', blobKey } = options
+  console.log({ list, dir, ext, blobKey })
+  if (!Array.isArray(list)) {
+
+  }
+  const tasks = list.map((item) => {
+    const { author, title, topic, blob, images } = item
+    const output = dirKey && dir ? `${dir}/${item[dirKey] || author}` : dir
+    const filename = `${output}/${title}${ext}`
+    return chrome.downloads.download({ url: item[blobKey], filename }).then(downloadId => {
+      return { downloadId }
+    })
+  })
+  const res = await Promise.allSettled(tasks)
+  return res
+}
+
+async function downloadSingleImage(list = [], dir) {
+  for (let index = 0; index < list.length; index++) {
+    const element = list[index];
+    const { author, title, topic, blob, images } = element
+    const tasks = images.filter(image => {
+      return !filters.includes(pathParse(image).base)
+    })
+    .map(image => {
+      const { base } = pathParse(image)
+      const filename = `${dir}/${author}/images/${base}`
+      return chrome.downloads.download({ url: image, filename }).then(downloadId => {
+        return { downloadId }
+      })
+    })
+    
+    await Promise.all(tasks)
+    await sleep(5000)
+
+  }
+}
+
+async function downloadImage(list = [], dir) {
   const imagesList = []
   for (let index = 0; index < list.length; index++) {
     const element = list[index];
     imagesList.push(...element.images)
   }
 
-  const filters = ['back.gif']
   const tasks = imagesList.filter(image => {
     return !filters.includes(pathParse(image).base)
   })
   .map(image => {
     const { base } = pathParse(image)
-    const filename = `${outputImagesPath}/${base}`
+    const filename = `${dir}/${base}`
     return chrome.downloads.download({ url: image, filename }).then(downloadId => {
       return { downloadId }
     })

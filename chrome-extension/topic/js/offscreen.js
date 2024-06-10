@@ -1,18 +1,23 @@
 
 const BACKGROUND_TO_OFFSCREEN = 'BACKGROUND_TO_OFFSCREEN'
+const BACKGROUND_TO_OFFSCREEN__SINGLE = 'BACKGROUND_TO_OFFSCREEN__SINGLE'
 const OFFSCREEN_TO_BACKGROUND = 'OFFSCREEN_TO_BACKGROUND'
+const OFFSCREEN_TO_BACKGROUND__SINGLE = 'OFFSCREEN_TO_BACKGROUND__SINGLE'
 const TOPIC_KEY = 'topic'
 
-chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
+chrome.runtime.onMessage.addListener(async function (request, sender, sendResponse) {
   console.log('消息：', request, sender, sendResponse)
   const { cmd, result } = request
   if (cmd === BACKGROUND_TO_OFFSCREEN) {
-    create(result)
+    const res = create(result, OFFSCREEN_TO_BACKGROUND)
+  }
+  if (cmd === BACKGROUND_TO_OFFSCREEN__SINGLE) {
+    const res = create(result, OFFSCREEN_TO_BACKGROUND__SINGLE)
   }
   sendResponse({ message: '我是 offscreen，已收到你的消息：', request })
 })
 
-async function create(result = []) {
+async function create(result = [], cmd) {
   for (let index = 0; index < result.length; index++) {
     const element = result[index];
     const text = element[TOPIC_KEY]
@@ -26,23 +31,25 @@ async function create(result = []) {
     element.blob = url
 
     // TODO 改成配置选项
-    const html = setImageURL(text)
+    const html = updateAttribute(text)
     const htmlBlob = new Blob([html], {
       type: "text/html"
     })
     const htmlBlobUrl = URL.createObjectURL(htmlBlob)
     element.htmlBlob = htmlBlobUrl
   }
+  // return result
 
-  await chrome.runtime.sendMessage({ cmd: OFFSCREEN_TO_BACKGROUND, result })
+  await chrome.runtime.sendMessage({ cmd, result })
 }
 
 
 const i = ['attachimg.gif', 'back.gif']
-function setImageURL(html) {
+const styles = `<style>.t_msgfontfix{width: 960px;}t</style>`
+function updateAttribute(html) {
 
   const div = document.createElement('div')
-  div.innerHTML = html;
+  div.innerHTML = [styles, html].join('\n\t');
 
   [...div.querySelectorAll('img')].forEach(image => {
     const src = image.getAttribute('src')
@@ -50,6 +57,14 @@ function setImageURL(html) {
     if (src && !i.includes(base)) {
       image.setAttribute('src', `images/${base}`)
     }
+
+    const removeAttrs = ['onmouseover'];
+    removeAttrs.forEach(attr => {
+      if (image.getAttribute(attr)) {
+        // image.setAttribute(attr, '')
+        image.removeAttribute(attr)
+      }
+    })
   })
 
   return div.innerHTML
