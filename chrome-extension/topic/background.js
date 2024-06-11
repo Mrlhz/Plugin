@@ -1,6 +1,6 @@
 import { getTopicDetail } from './js/dom.js'
 import { setupOffscreenDocument, pathParse, sleep, safeFileName } from './js/utils.js'
-import { getAllWindow } from './js/helper.js'
+import { getAllWindow, getCurrentTab } from './js/helper.js'
 
 const TOPIC = 'TOPIC'
 const TOPIC_LIST = 'TOPIC_LIST'
@@ -52,11 +52,7 @@ chrome.contextMenus.onClicked.addListener(async function (info, tab) {
   console.log(info, tab)
   const { menuItemId } = info
   if (menuItemId === TOPIC) {
-    const list = await getTopicList([tab])
-    console.log({ list })
-    await setupOffscreenDocument()
-
-    const response = await chrome.runtime.sendMessage({ cmd: BACKGROUND_TO_OFFSCREEN, result: list })
+    await getOneTopic(BACKGROUND_TO_OFFSCREEN)
   }
 
   const tabs = await getAllWindow()
@@ -73,10 +69,7 @@ chrome.contextMenus.onClicked.addListener(async function (info, tab) {
   }
 
   if (menuItemId === TOPIC_SINGLE) {
-    const list = await getTopicList([tab])
-    await setupOffscreenDocument()
-
-    const response = await chrome.runtime.sendMessage({ cmd: BACKGROUND_TO_OFFSCREEN__SINGLE, result: list })
+    await getOneTopic(BACKGROUND_TO_OFFSCREEN__SINGLE)
   }
   
   if (menuItemId === TOPIC_LIST_SINGLE) {
@@ -88,6 +81,23 @@ chrome.contextMenus.onClicked.addListener(async function (info, tab) {
   }
 
 })
+
+
+chrome.commands.onCommand.addListener(async (command) => {
+  console.log(`Command "${command}" triggered`)
+  if (command === 'run-TOPIC_SINGLE') {
+    await getOneTopic(BACKGROUND_TO_OFFSCREEN__SINGLE)
+  }
+})
+
+async function getOneTopic(cmd) {
+  const tab = await getCurrentTab()
+  const list = await getTopicList([tab])
+  console.log({ list })
+  await setupOffscreenDocument()
+
+  const response = await chrome.runtime.sendMessage({ cmd, result: list })
+}
 
 async function getTopicList(tabs = []) {
   

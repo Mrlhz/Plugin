@@ -17,6 +17,23 @@
       "*://*/*"
     ]
   }],
+  "commands": {
+    "run-TOPIC_SINGLE": {
+      "suggested_key": {
+        "default": "Alt+S",
+        "mac": "Alt+S"
+      },
+      "description": "Run \"run-topic single\" on the current page."
+    },
+    "_execute_action": {
+      "suggested_key": {
+        "windows": "Alt+S",
+        "mac": "Alt+S",
+        "chromeos": "Alt+S",
+        "linux": "Alt+S"
+      }
+    }
+  },
   "web_accessible_resources": [{
     "resources": ["js/*"], 
     "matches": ["<all_urls>"]
