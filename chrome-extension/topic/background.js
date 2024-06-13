@@ -131,7 +131,7 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
     await downloadImage(result, outputImagesPath)
   }
 
-  if (OFFSCREEN_TO_BACKGROUND__SINGLE) {
+  if (cmd === OFFSCREEN_TO_BACKGROUND__SINGLE) {
     await downloadFile({
       list: result,
       dir: outputPath,
