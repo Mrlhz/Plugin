@@ -46,7 +46,8 @@
     "tabs",
     "webRequest",
     "storage",
-    "offscreen"
+    "offscreen",
+    "notifications"
   ],
   "host_permissions": [
     "*://*/*"

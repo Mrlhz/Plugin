@@ -116,57 +116,75 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
 
   // download file
   if (cmd === OFFSCREEN_TO_BACKGROUND) {
-    await downloadFile({
-      list: result,
-      dir: outputPath,
-      ext: '.md',
-      blobKey: 'blob'
-    });
-    await downloadFile({
-      list: result,
-      dir: outputPath,
-      ext: '.html',
-      blobKey: 'htmlBlob'
-    })
+    await downloadFile([
+      {
+        list: result,
+        dir: outputPath,
+        ext: '.md',
+        blobKey: 'blob'
+      },
+      {
+        list: result,
+        dir: outputPath,
+        ext: '.html',
+        blobKey: 'htmlBlob'
+      }
+    ]);
     await downloadImage(result, outputImagesPath)
   }
 
   if (cmd === OFFSCREEN_TO_BACKGROUND__SINGLE) {
-    await downloadFile({
-      list: result,
-      dir: outputPath,
-      dirKey: 'author',
-      ext: '.md',
-      blobKey: 'blob'
-    });
-    await downloadFile({
-      list: result,
-      dir: outputPath,
-      dirKey: 'author',
-      ext: '.html',
-      blobKey: 'htmlBlob'
-    })
+    await downloadFile([
+      {
+        list: result,
+        dir: outputPath,
+        dirKey: 'author',
+        ext: '.md',
+        blobKey: 'blob'
+      },
+      {
+        list: result,
+        dir: outputPath,
+        dirKey: 'author',
+        ext: '.html',
+        blobKey: 'htmlBlob'
+      }
+    ]);
     await downloadSingleImage(result, outputPath);
   }
 
   sendResponse({ message: '我是后台，已收到你的消息：', request })
 })
 
-async function downloadFile(options) {
-  const { list = [], dir, dirKey, ext = '.md', blobKey } = options
-  console.log({ list, dir, ext, blobKey })
-  if (!Array.isArray(list)) {
+async function downloadFile(files = []) {
+  if (!Array.isArray(files)) {
+    return []
+  }
+  const result = []
+  for (let index = 0; index < files.length; index++) {
+    const file = files[index];
+    const { list = [], dir, dirKey, ext = '.md', blobKey } = file
+    console.log({ list, dir, ext, blobKey })
+    if (!Array.isArray(list)) {
+      continue
+    }
+
+    list.forEach((item) => {
+      const { author, title, topic, blob, images } = item
+      const output = dirKey && dir ? `${dir}/${item[dirKey] || author}` : dir
+      const filename = `${output}/${title}${ext}`
+      result.push({ url: item[blobKey], filename })
+    })
 
   }
-  const tasks = list.map((item) => {
-    const { author, title, topic, blob, images } = item
-    const output = dirKey && dir ? `${dir}/${item[dirKey] || author}` : dir
-    const filename = `${output}/${title}${ext}`
-    return chrome.downloads.download({ url: item[blobKey], filename }).then(downloadId => {
+  const filesList = await pathExists(result)
+
+  const tasks = filesList.map(file => {
+    return chrome.downloads.download(file).then(downloadId => {
       return { downloadId }
     })
   })
-  const res = await Promise.allSettled(tasks)
+  const res = await Promise.all(tasks)
   return res
 }
 
@@ -174,13 +192,19 @@ async function downloadSingleImage(list = [], dir) {
   for (let index = 0; index < list.length; index++) {
     const element = list[index];
     const { author, title, topic, blob, images } = element
-    const tasks = images.filter(image => {
+    const body = images.filter(image => {
       return !filters.includes(pathParse(image).base)
     })
     .map(image => {
       const { base } = pathParse(image)
       const filename = `${dir}/${author}/images/${base}`
-      return chrome.downloads.download({ url: image, filename }).then(downloadId => {
+      return { url: image, filename }
+    })
+
+    const imagesList = await pathExists(body)
+
+    const tasks = imagesList.map(file => {
+      return chrome.downloads.download(file).then(downloadId => {
         return { downloadId }
       })
     })
@@ -210,4 +234,45 @@ async function downloadImage(list = [], dir) {
   })
   
   await Promise.all(tasks)
+}
+
+
+async function pathExists(list = []) {
+  const DOWNLOADSLOCATION = 'downloadsLocation'
+  // Downloads Location
+  const dir = 'D:\\Downloads'
+  list.forEach(item => {
+    Reflect.set(item, DOWNLOADSLOCATION, dir);
+  })
+
+  const { result } = await fetch('http://localhost:8080/pathExists', {
+    method: 'post',
+    body: JSON.stringify(list),
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  })
+  .then(res => res.json())
+  .catch(error => {
+    console.log(error)
+    let options = {
+      type: 'basic',
+      title: '通知',
+      message: 'pathExists服务未启用',
+      iconUrl: 'images/topic.jpg'
+    };
+    chrome.notifications.create(options);
+    return { result: [] }
+  })
+
+  if (!Array.isArray(result)) {
+    return []
+  }
+
+  // chrome.downloads.download 接收自定义字段会报错
+  result.forEach(item => {
+    Reflect.deleteProperty(item, DOWNLOADSLOCATION)
+  })
+
+  return result
 }
