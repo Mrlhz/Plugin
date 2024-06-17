@@ -18,12 +18,19 @@
     ]
   }],
   "commands": {
-    "run-TOPIC_SINGLE": {
+    "RUN_TOPIC_SINGLE": {
       "suggested_key": {
         "default": "Alt+S",
         "mac": "Alt+S"
       },
-      "description": "Run \"run-topic single\" on the current page."
+      "description": "Run \"run topic single\" on the current page."
+    },
+    "RUN_TOPIC_LIST_SINGLE": {
+      "suggested_key": {
+        "default": "Alt+L",
+        "mac": "Alt+L"
+      },
+      "description": "Run \"run topic list single\" on the current page."
     },
     "_execute_action": {
       "suggested_key": {
@@ -53,15 +60,15 @@
     "*://*/*"
   ],
   "icons": {
-    "16": "images/icon-large.png",
-    "48": "images/icon-large.png",
-    "128": "images/icon-large.png"
+    "16": "images/topic48.png",
+    "48": "images/topic48.png",
+    "128": "images/topic48.png"
   },
   "action": {
     "default_icon": {
-      "16": "images/icon-large.png",
-      "24": "images/icon-large.png",
-      "32": "images/icon-large.png"
+      "16": "images/topic48.png",
+      "24": "images/topic48.png",
+      "32": "images/topic48.png"
     },
     "default_title": "Extension",
     "default_popup": "popup.html"

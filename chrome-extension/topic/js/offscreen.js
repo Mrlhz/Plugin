@@ -9,10 +9,10 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
   console.log('消息：', request, sender, sendResponse)
   const { cmd, result } = request
   if (cmd === BACKGROUND_TO_OFFSCREEN) {
-    const res = create(result, OFFSCREEN_TO_BACKGROUND)
+    create(result, OFFSCREEN_TO_BACKGROUND)
   }
   if (cmd === BACKGROUND_TO_OFFSCREEN__SINGLE) {
-    const res = create(result, OFFSCREEN_TO_BACKGROUND__SINGLE)
+    create(result, OFFSCREEN_TO_BACKGROUND__SINGLE)
   }
   sendResponse({ message: '我是 offscreen，已收到你的消息：', request })
 })

@@ -31,12 +31,12 @@ const menus = [
   {
     'id': TOPIC_SINGLE,
     'type': 'normal',
-    'title': 'topic single'
+    'title': 'topic single[Alt + S]'
   },
   {
     'id': TOPIC_LIST_SINGLE,
     'type': 'normal',
-    'title': 'topic List single'
+    'title': 'topic List single[Alt + L]'
   }
 ]
 
@@ -55,29 +55,15 @@ chrome.contextMenus.onClicked.addListener(async function (info, tab) {
     await getOneTopic(BACKGROUND_TO_OFFSCREEN)
   }
 
-  const tabs = await getAllWindow()
-  const filterTabs = tabs.filter(tab => tab.url.includes('viewthread.php?tid='))
-
-  const list = await getTopicList(filterTabs)
-  console.log({ list })
-  if (menuItemId === TOPIC_LIST) {
-    await setupOffscreenDocument()
-
-    const response = await chrome.runtime.sendMessage({ cmd: BACKGROUND_TO_OFFSCREEN, result: list })
-    console.log('收到来自 offscreen 的回复：', response)
-
-  }
-
   if (menuItemId === TOPIC_SINGLE) {
     await getOneTopic(BACKGROUND_TO_OFFSCREEN__SINGLE)
   }
   
+  if (menuItemId === TOPIC_LIST) {
+    await getTopicList(BACKGROUND_TO_OFFSCREEN)
+  }
   if (menuItemId === TOPIC_LIST_SINGLE) {
-    await setupOffscreenDocument()
-
-    const response = await chrome.runtime.sendMessage({ cmd: BACKGROUND_TO_OFFSCREEN__SINGLE, result: list })
-    console.log('收到来自 offscreen 的回复：', response)
-
+    await getTopicList(BACKGROUND_TO_OFFSCREEN__SINGLE)
   }
 
 })
@@ -85,21 +71,36 @@ chrome.contextMenus.onClicked.addListener(async function (info, tab) {
 
 chrome.commands.onCommand.addListener(async (command) => {
   console.log(`Command "${command}" triggered`)
-  if (command === 'run-TOPIC_SINGLE') {
+  if (command === 'RUN_TOPIC_SINGLE') {
     await getOneTopic(BACKGROUND_TO_OFFSCREEN__SINGLE)
+  }
+  if (command === 'RUN_TOPIC_LIST_SINGLE') {
+    await getTopicList(BACKGROUND_TO_OFFSCREEN__SINGLE)
   }
 })
 
 async function getOneTopic(cmd) {
   const tab = await getCurrentTab()
-  const list = await getTopicList([tab])
+  const list = await getTopicDetails([tab])
   console.log({ list })
   await setupOffscreenDocument()
 
   const response = await chrome.runtime.sendMessage({ cmd, result: list })
 }
 
-async function getTopicList(tabs = []) {
+async function getTopicList(cmd) {
+  const tabs = await getAllWindow()
+  const filterTabs = tabs.filter(tab => tab.url.includes('viewthread.php?tid='))
+
+  const list = await getTopicDetails(filterTabs)
+  console.log({ list })
+  await setupOffscreenDocument()
+
+  const response = await chrome.runtime.sendMessage({ cmd, result: list })
+  console.log('收到来自 offscreen 的回复：', response)
+}
+
+async function getTopicDetails(tabs = []) {
   
   const tasks = tabs.map(tab => {
     return chrome.scripting.executeScript({ target: { tabId: tab.id }, func: getTopicDetail, args: [] }).then(([{ documentId, frameId, result }]) => result)
