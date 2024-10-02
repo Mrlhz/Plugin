@@ -14,6 +14,15 @@
       "https://developer.mozilla.org/*"
     ]
   }],
+  "commands": {
+    "RUN_DOWNLOAD_IMAGE_LIST": {
+      "suggested_key": {
+        "default": "Alt+I",
+        "mac": "Alt+I"
+      },
+      "description": "Run \"run Alt I\" on the current page."
+    }
+  },
   "web_accessible_resources": [{
     "resources": ["js/*"], 
     "matches": ["<all_urls>"]

@@ -1,5 +1,6 @@
 
 import menuInit from './js/contextMenus.js'
+import commandInit from './js/commands.js'
 
 import { cacheName } from './config.js'
 
@@ -9,5 +10,6 @@ import './js/event.js'
 
 
 menuInit()
+commandInit()
 blogMenuInit()
 console.log(cacheName)
