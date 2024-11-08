@@ -26,7 +26,7 @@ const server = http.createServer(async (req, res) => {
 
     // 简易bodyParser
     const data = JSON.parse(body)
-    const result = pathExists(data)
+    const result = await pathExists(data)
     console.log({ result })
     res.writeHead(200);
     res.end(JSON.stringify({
@@ -34,7 +34,7 @@ const server = http.createServer(async (req, res) => {
       result
     }));
   } else {
-    // 对于非 `/pathExists` 或非 GET 请求，返回fail
+    // 对于非 `/pathExists` 或非 POST 请求，返回fail
     res.writeHead(200);
     res.end(JSON.stringify({ msg: 'fail' }));
   }
@@ -45,14 +45,27 @@ server.listen(8080, () => {
   console.log(`Server is running on http://localhost:8080/`);
 });
 
-function pathExists(list = []) {
+async function pathExists(list = []) {
   if (!Array.isArray(list)) {
     return list
   }
-  return list.filter(({ url, downloadsLocation, filename }) => {
-    const p = path.resolve(downloadsLocation, filename)
-    return !fs.existsSync(p)
-  })
+  const result = []
+  for (const item of list) {
+    const { url, downloadsLocation, filename } = item
+    const { ext, name, dir } = path.parse(filename)
+    const exts = format(item.exts, ext)
+    
+    const tasks = exts.map(ext => {
+      const p = path.resolve(downloadsLocation, dir, name + ext)
+      return !fs.existsSync(p)
+    })
+    const r = await Promise.all(tasks)
+    // exts 数组包含的类型文件都不存在
+    if (r.every(v => v)) {
+      result.push(item)
+    }
+  }
+  return result
 }
 
 
@@ -75,6 +88,22 @@ function parseRequest(request) {
   })
 }
 
+/**
+ * 
+ * @param {Array} exts 
+ * @param {string} filename 
+ * @returns 
+ * @example
+ * format(['.webp'], '.jpg')
+ * => ['.webp', '.jpg']
+ */
+function format(exts = [], ext) {
+  const result = [ext]
+  if (Array.isArray(exts)) {
+    result.push(...exts)
+  }
+  return [...new Set(result.filter(v => v))]
+}
 
 function formatData(str, contentType) {
   let result = '';
