@@ -1,3 +1,7 @@
 .topic {
 
 }
+
+.downloaded {
+  text-decoration: line-through !important;
+}

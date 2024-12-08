@@ -95,7 +95,17 @@ export function pathParse(pathString) {
 }
 
 export function safeFileName(str, replace = '-') {
-  return str.replace(/[\\\/\:\*\?\"\<\>\|]/g, replace)
+  // return str.replace(/[\\\/\:\：\*\?\"\<\>\|]/g, replace)
+  return str?.trim()
+     ?.toLowerCase()
+    .replace(/\s+/g, '-') // Replace whitespace with -
+    .replace(/[\]\[\!\'\#\$\%\&\(\)\*\+\,\.\/\:\\<\=\>\?\@\\\^\_\{\|\}\~\`。，、；：？！…—·ˉ¨‘’“”々～‖∶＂＇｀｜〃〔〕〈〉《》「」『』．〖〗【】（）［］｛｝]/g, replace) // Remove known punctuators
+    .replace(/^\-+/, '') // Remove leading -
+    .replace(/\-+$/, '') // Remove trailing -
+}
+
+export function slug(str) {
+  return (str || '').replace(/\./g, '')
 }
 
 export function sleep(delay) {

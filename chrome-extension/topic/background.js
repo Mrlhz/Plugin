@@ -1,7 +1,8 @@
 import { getTopicDetail } from './js/dom.js'
-import { setupOffscreenDocument, pathParse, sleep, safeFileName } from './js/utils.js'
+import { setupOffscreenDocument, pathParse, sleep, safeFileName, slug, parseQuery } from './js/utils.js'
 import { getAllWindow, getCurrentTab } from './js/helper.js'
 
+const TOPIC_KEY = 'topic'
 const TOPIC = 'TOPIC'
 const TOPIC_LIST = 'TOPIC_LIST'
 const BACKGROUND_TO_OFFSCREEN = 'BACKGROUND_TO_OFFSCREEN'
@@ -103,11 +104,13 @@ async function getTopicList(cmd) {
 async function getTopicDetails(tabs = []) {
   
   const tasks = tabs.map(tab => {
-    return chrome.scripting.executeScript({ target: { tabId: tab.id }, func: getTopicDetail, args: [] }).then(([{ documentId, frameId, result }]) => result)
+    const { search } = new URL(tab.url)
+    const { tid } = parseQuery(search)
+    return chrome.scripting.executeScript({ target: { tabId: tab.id }, func: getTopicDetail, args: [{ tid }] }).then(([{ documentId, frameId, result }]) => result)
   })
 
   const result =  await Promise.all(tasks)
-  return result
+  return result.filter(item => item[TOPIC_KEY])
 }
 
 
@@ -171,21 +174,24 @@ async function downloadFile(files = []) {
     }
 
     list.forEach((item) => {
-      const { author, title, topic, blob, images } = item
+      const { author, title, topic, blob, images, tid } = item
       const output = dirKey && dir ? `${dir}/${item[dirKey] || author}` : dir
-      const filename = `${output}/${title}${ext}`
-      result.push({ url: item[blobKey], filename })
+      const filename = `${slug(output)}/${safeFileName(title)}${ext}`
+      result.push({ url: item[blobKey], filename, title, tid })
     })
 
   }
   const filesList = await pathExists(result)
+  const exists = filterAlreadyExists(result, filesList)
+  await setStorage(exists)
 
-  const tasks = filesList.map(file => {
-    return chrome.downloads.download(file).then(downloadId => {
+  const tasks = filesList.map(({ url, filename }) => {
+    return chrome.downloads.download({ url, filename }).then(downloadId => {
       return { downloadId }
     })
   })
   const res = await Promise.all(tasks)
+  await setStorage(filesList)
   return res
 }
 
@@ -198,7 +204,7 @@ async function downloadSingleImage(list = [], dir) {
     })
     .map(image => {
       const { base } = pathParse(image)
-      const filename = `${dir}/${author}/images/${base}`
+      const filename = `${dir}/${slug(author)}/images/${base}`
       return { url: image, filename }
     })
 
@@ -211,7 +217,9 @@ async function downloadSingleImage(list = [], dir) {
     })
     
     await Promise.all(tasks)
-    await sleep(5000)
+    if (imagesList.length) {
+      await sleep(5000)
+    }
 
   }
 }
@@ -241,7 +249,8 @@ async function downloadImage(list = [], dir) {
 async function pathExists(list = []) {
   const DOWNLOADSLOCATION = 'downloadsLocation'
   // Downloads Location
-  const dir = 'D:\\Downloads'
+  // const dir = 'D:\\Downloads'
+  const dir = 'D:\\Downloads\\mask\\91论坛\\markdown'
   list.forEach(item => {
     Reflect.set(item, DOWNLOADSLOCATION, dir);
   })
@@ -276,4 +285,27 @@ async function pathExists(list = []) {
   })
 
   return result
+}
+
+function filterAlreadyExists(allList = [], filters = []) {
+  const res = []
+  const m = filters.reduce((acc, cur) => {
+    acc[cur.tid] = cur.title
+    return acc
+  }, {});
+  for (const item of allList) {
+    const { tid } = item
+    if (!m[tid]) {
+      res.push(item)
+    }
+  }
+
+  return res
+}
+
+async function setStorage(list = []) {
+  for (const item of list) {
+    const { tid, title } = item
+    await chrome.storage.local.set({ [tid]: title })
+  }
 }
