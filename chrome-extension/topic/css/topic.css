@@ -96,8 +96,8 @@
   --el-backtop-text-color: var(--el-color-primary);
   --el-backtop-hover-bg-color: var(--el-border-color-extra-light);
   position: fixed;
-  right: 30px;
-  bottom: 40px;
+  right: calc((100% - 1100px) / 2);
+  bottom: 60px;
   background-color: var(--el-backtop-bg-color);
   width: 40px;
   height: 40px;

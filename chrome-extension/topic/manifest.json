@@ -14,7 +14,8 @@
     "js" : ["js/content-script.js"],
     "matches": [
       "*://localhost/*",
-      "*://*/*"
+      "*://*/*",
+      "<all_urls>"
     ]
   }],
   "commands": {
@@ -31,6 +32,13 @@
         "mac": "Alt+L"
       },
       "description": "Run \"run topic list single\" on the current page."
+    },
+    "RUN_TOPIC_ALLPAGE": {
+      "suggested_key": {
+        "default": "Alt+A",
+        "mac": "Alt+A"
+      },
+      "description": "Run \"run topic app page\" on the current page."
     },
     "_execute_action": {
       "suggested_key": {

@@ -78,15 +78,19 @@ chrome.commands.onCommand.addListener(async (command) => {
   if (command === 'RUN_TOPIC_LIST_SINGLE') {
     await getTopicList(BACKGROUND_TO_OFFSCREEN__SINGLE)
   }
+  if (command === 'RUN_TOPIC_ALLPAGE') {
+    const options = { allPage: true }
+    await getOneTopic(BACKGROUND_TO_OFFSCREEN__SINGLE, options)
+  }
 })
 
-async function getOneTopic(cmd) {
+async function getOneTopic(cmd, options) {
   const tab = await getCurrentTab()
-  const list = await getTopicDetails([tab])
+  const list = await getTopicDetails([tab], options)
   console.log({ list })
   await setupOffscreenDocument()
 
-  const response = await chrome.runtime.sendMessage({ cmd, result: list })
+  const response = await chrome.runtime.sendMessage({ cmd, result: list, options })
 }
 
 async function getTopicList(cmd) {
@@ -101,12 +105,13 @@ async function getTopicList(cmd) {
   console.log('收到来自 offscreen 的回复：', response)
 }
 
-async function getTopicDetails(tabs = []) {
-  
+async function getTopicDetails(tabs = [], options = {}) {
+  // const { allPage } = options || {}
   const tasks = tabs.map(tab => {
     const { search } = new URL(tab.url)
-    const { tid } = parseQuery(search)
-    return chrome.scripting.executeScript({ target: { tabId: tab.id }, func: getTopicDetail, args: [{ tid }] }).then(([{ documentId, frameId, result }]) => result)
+    const { tid, page } = parseQuery(search)
+    return chrome.scripting.executeScript({ target: { tabId: tab.id }, func: getTopicDetail, args: [{ tid, page, ...(options || {}) }] })
+      .then(([{ documentId, frameId, result }]) => result)
   })
 
   const result =  await Promise.all(tasks)
@@ -116,7 +121,7 @@ async function getTopicDetails(tabs = []) {
 
 chrome.runtime.onMessage.addListener(async function (request, sender, sendResponse) {
   console.log('消息：', request, sender, sendResponse)
-  const { cmd, result } = request
+  const { cmd, result, options } = request
 
   // download file
   if (cmd === OFFSCREEN_TO_BACKGROUND) {
@@ -153,14 +158,14 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
         ext: '.html',
         blobKey: 'htmlBlob'
       }
-    ]);
+    ], options);
     await downloadSingleImage(result, outputPath);
   }
 
   sendResponse({ message: '我是后台，已收到你的消息：', request })
 })
 
-async function downloadFile(files = []) {
+async function downloadFile(files = [], options = {}) {
   if (!Array.isArray(files)) {
     return []
   }
@@ -173,10 +178,12 @@ async function downloadFile(files = []) {
       continue
     }
 
+    const { allPage } = options || {}
     list.forEach((item) => {
-      const { author, title, topic, blob, images, tid } = item
+      const { author, title, topic, blob, images, tid, page } = item
       const output = dirKey && dir ? `${dir}/${item[dirKey] || author}` : dir
-      const filename = `${slug(output)}/${safeFileName(title)}${ext}`
+      const _title = allPage ? `${title}_page${page || 1}` : title
+      const filename = `${slug(output)}/${safeFileName(_title)}${ext}`
       result.push({ url: item[blobKey], filename, title, tid })
     })
 

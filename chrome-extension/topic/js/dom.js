@@ -1,11 +1,20 @@
 // import { getAllBgImages } from './utils.js'
 
 export function getTopicDetail(options) {
-  const { tid } = options
-  const title = document.querySelector('#threadtitle h1')?.innerText || '';
-  const topicDom = document.querySelector('.t_msgfontfix')
-                || document.querySelector('.postmessage.firstpost')
-                || document.querySelector('.defaultpost');
+  const { tid, page, allPage } = options || {}
+  const title = document.querySelector('#threadtitle h1')?.innerText
+    || document.querySelector('#nav')?.innerText?.split('» ').at(-1)
+    || '';
+
+  let topicDom = '';
+  if (allPage) {
+    topicDom = document.getElementById('wrap')
+  } else {
+    topicDom = document.querySelector('.t_msgfontfix')
+      || document.querySelector('.postmessage.firstpost')
+      || document.querySelector('.defaultpost');
+  }
+  
   // 无权限
   if (!topicDom) {
     return {
@@ -29,7 +38,8 @@ export function getTopicDetail(options) {
     author,
     images,
     url: window.location.href,
-    tid
+    tid,
+    page
   }
 
 }

@@ -95,13 +95,13 @@ export function pathParse(pathString) {
 }
 
 export function safeFileName(str, replace = '-') {
-  // return str.replace(/[\\\/\:\：\*\?\"\<\>\|]/g, replace)
-  return str?.trim()
-     ?.toLowerCase()
-    .replace(/\s+/g, '-') // Replace whitespace with -
-    .replace(/[\]\[\!\'\#\$\%\&\(\)\*\+\,\.\/\:\\<\=\>\?\@\\\^\_\{\|\}\~\`。，、；：？！…—·ˉ¨‘’“”々～‖∶＂＇｀｜〃〔〕〈〉《》「」『』．〖〗【】（）［］｛｝]/g, replace) // Remove known punctuators
-    .replace(/^\-+/, '') // Remove leading -
-    .replace(/\-+$/, '') // Remove trailing -
+  return str.replace(/[\\\/\:\：\*\?\"\<\>\|]/g, replace)
+  // return str?.trim()
+  //    ?.toLowerCase()
+  //   .replace(/\s+/g, '-') // Replace whitespace with -
+  //   .replace(/[\]\[\!\'\#\$\%\&\(\)\*\+\,\.\/\:\\<\=\>\?\@\\\^\_\{\|\}\~\`。，、；：？！…—·ˉ¨‘’“”々～‖∶＂＇｀｜〃〔〕〈〉《》「」『』．〖〗【】（）［］｛｝]/g, replace) // Remove known punctuators
+  //   .replace(/^\-+/, '') // Remove leading -
+  //   .replace(/\-+$/, '') // Remove trailing -
 }
 
 export function slug(str) {
@@ -126,4 +126,50 @@ export function formatDate(t) {
   const day = date.getDate()
 
   return [year, month, day].map(formatNumber).join('-')
+}
+
+// https://github.com/vuejs/router/blob/main/packages/router/src/encoding.ts
+export const PLUS_RE = /\+/g // %2B
+export function decode(text) {
+  try {
+    return decodeURIComponent('' + text)
+  } catch (err) {
+    console.error(`Error decoding "${text}". Using original value`)
+  }
+  return '' + text
+}
+
+/**
+ * @link https://github.com/vuejs/router/blob/main/packages/router/src/query.ts
+ * @param {*} search 
+ * @returns 
+ */
+export function parseQuery(search = '') {
+  const query = {}
+  // avoid creating an object with an empty key and empty value
+  // because of split('&')
+  if (search === '' || search === '?') return query
+  const hasLeadingIM = search[0] === '?'
+  const searchParams = (hasLeadingIM ? search.slice(1) : search).split('&')
+  for (let i = 0; i < searchParams.length; ++i) {
+    // pre decode the + into space
+    const searchParam = searchParams[i].replace(PLUS_RE, ' ')
+    // allow the = character
+    const eqPos = searchParam.indexOf('=')
+    const key = decode(eqPos < 0 ? searchParam : searchParam.slice(0, eqPos))
+    const value = eqPos < 0 ? null : decode(searchParam.slice(eqPos + 1))
+
+    if (key in query) {
+      // an extra variable for ts types
+      let currentValue = query[key]
+      if (!isArray(currentValue)) {
+        currentValue = query[key] = [currentValue]
+      }
+      // we force the modification
+      ;currentValue.push(value)
+    } else {
+      query[key] = value
+    }
+  }
+  return query
 }
