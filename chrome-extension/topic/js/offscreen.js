@@ -30,8 +30,14 @@ async function create(result = [], cmd, options) {
 
     element.blob = url
 
+    const { allPage } = options || {}
+    const { author, authorLink } = element
+    let _text = text
+    if (!allPage) {
+      _text = insert(_text, makeAuthorHtml({ author, authorLink }))
+    }
     // TODO 改成配置选项
-    const html = updateAttribute(text, options)
+    const html = updateAttribute(_text, options)
     const htmlBlob = new Blob([html], {
       type: "text/html"
     })
@@ -65,6 +71,7 @@ const head = `
   <link rel="stylesheet" href="../../stylesheet/style_4_common.css">
   <link rel="stylesheet" href="../../stylesheet/scriptstyle_4_viewthread.css">
   <link rel="stylesheet" href="../../stylesheet/style_4_seditor.css">
+  <link rel="stylesheet" href="../../stylesheet/style_4_special.css">
 </head>`
 const styles = `<style>.t_msgfontfix{width: 960px;}t</style>`
 function updateAttribute(html, options) {
@@ -122,6 +129,33 @@ function removeAttributes(ele) {
       }
     })
   }
+}
+
+function makeAuthorHtml(info = {}) {
+  const content = `<a href="${info.authorLink}" class="posterlink" target="_blank">${info.author}</a>`
+  
+  return [content, '<br>'].join('')
+}
+
+// 在头部插入作者信息
+function insert(targetHtml = '', html) {
+  const div = document.createElement('div')
+  div.innerHTML = targetHtml
+  const target = div.querySelector('.t_msgfontfix')
+  if (!target) {
+    return targetHtml
+  }
+
+  const newNode = document.createElement('p')
+  newNode.innerHTML = html
+  // 检查div是否有子节点，如果有，插入到第一个子节点之前
+  if (target.firstChild) {
+    target.insertBefore(newNode, target.firstChild);
+  } else {
+    target.appendChild(newNode);
+  }
+
+  return div.innerHTML
 }
 
 

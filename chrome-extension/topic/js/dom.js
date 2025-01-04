@@ -24,7 +24,10 @@ export function getTopicDetail(options) {
     }
   }
 
-  const author = document.querySelector('.authorinfo .posterlink')?.innerText?.trim() || '';
+  const authorDom = document.querySelector('.authorinfo .posterlink')
+  const author = authorDom?.innerText?.trim() || '';
+  const space = authorDom?.getAttribute('href') || '';
+  const authorLink = space.startsWith('http') ? space : `${window.location.origin}/${space}`;
 
   const images = [...topicDom?.querySelectorAll('img')]
     .map(image => {
@@ -36,6 +39,7 @@ export function getTopicDetail(options) {
     title,
     topic: topicDom?.outerHTML,
     author,
+    authorLink,
     images,
     url: window.location.href,
     tid,
