@@ -1,6 +1,7 @@
 import { getTopicDetail } from './js/dom.js'
 import { setupOffscreenDocument, pathParse, sleep, safeFileName, slug, parseQuery } from './js/utils.js'
 import { getAllWindow, getCurrentTab } from './js/helper.js'
+import { pathExists, notice } from './js/pathExists.js'
 
 const TOPIC_KEY = 'topic'
 const TOPIC = 'TOPIC'
@@ -181,7 +182,7 @@ async function downloadFile(files = [], options = {}) {
     const { allPage } = options || {}
     list.forEach((item) => {
       const { author, title, topic, blob, images, tid, page } = item
-      const output = dirKey && dir ? `${dir}/${item[dirKey] || author}` : dir
+      const output = dirKey && dir ? `${dir}/${safeFileName(item[dirKey] || author)}` : dir
       const _title = allPage ? `${title}_page${page || 1}` : title
       const filename = `${slug(output)}/${safeFileName(_title)}${ext}`
       result.push({ url: item[blobKey], filename, title, tid })
@@ -195,6 +196,9 @@ async function downloadFile(files = [], options = {}) {
   const tasks = filesList.map(({ url, filename }) => {
     return chrome.downloads.download({ url, filename }).then(downloadId => {
       return { downloadId }
+    }).catch(error => {
+      console.log({ url, filename, error })
+      notice({ message: `${error?.message}: ${filename}` })
     })
   })
   const res = await Promise.all(tasks)
@@ -211,7 +215,7 @@ async function downloadSingleImage(list = [], dir) {
     })
     .map(image => {
       const { base } = pathParse(image)
-      const filename = `${dir}/${slug(author)}/images/${base}`
+      const filename = `${dir}/${safeFileName(author)}/images/${base}`
       return { url: image, filename }
     })
 
@@ -220,6 +224,9 @@ async function downloadSingleImage(list = [], dir) {
     const tasks = imagesList.map(file => {
       return chrome.downloads.download(file).then(downloadId => {
         return { downloadId }
+      }).catch(error => {
+        console.log({ ...file, error })
+        notice({ message: `${error?.message}: ${file.filename}` })
       })
     })
     
@@ -250,48 +257,6 @@ async function downloadImage(list = [], dir) {
   })
   
   await Promise.all(tasks)
-}
-
-
-async function pathExists(list = []) {
-  const DOWNLOADSLOCATION = 'downloadsLocation'
-  // Downloads Location
-  // const dir = 'D:\\Downloads'
-  const dir = 'D:\\Downloads\\mask\\91论坛\\markdown'
-  list.forEach(item => {
-    Reflect.set(item, DOWNLOADSLOCATION, dir);
-  })
-
-  const { result } = await fetch('http://localhost:8080/pathExists', {
-    method: 'post',
-    body: JSON.stringify(list),
-    headers: {
-      'Content-Type': 'application/json'
-    }
-  })
-  .then(res => res.json())
-  .catch(error => {
-    console.log(error)
-    let options = {
-      type: 'basic',
-      title: '通知',
-      message: 'pathExists服务未启用',
-      iconUrl: 'images/topic.jpg'
-    };
-    chrome.notifications.create(options);
-    return { result: [] }
-  })
-
-  if (!Array.isArray(result)) {
-    return []
-  }
-
-  // chrome.downloads.download 接收自定义字段会报错
-  result.forEach(item => {
-    Reflect.deleteProperty(item, DOWNLOADSLOCATION)
-  })
-
-  return result
 }
 
 function filterAlreadyExists(allList = [], filters = []) {

@@ -96,6 +96,9 @@ function parseRequest(request) {
  * @example
  * format(['.webp'], '.jpg')
  * => ['.webp', '.jpg']
+ * 
+ * format(['.webp'], '.webp')
+ * => ['.webp']
  */
 function format(exts = [], ext) {
   const result = [ext]

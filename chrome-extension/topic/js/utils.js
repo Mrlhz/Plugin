@@ -96,6 +96,8 @@ export function pathParse(pathString) {
 
 export function safeFileName(str, replace = '-') {
   return str.replace(/[\\\/\:\：\*\?\"\<\>\|]/g, replace)
+    .replaceAll('~', '')
+    .replace(/\./g, '')
   // return str?.trim()
   //    ?.toLowerCase()
   //   .replace(/\s+/g, '-') // Replace whitespace with -
