@@ -5,6 +5,15 @@ const OFFSCREEN_TO_BACKGROUND = 'OFFSCREEN_TO_BACKGROUND'
 const OFFSCREEN_TO_BACKGROUND__SINGLE = 'OFFSCREEN_TO_BACKGROUND__SINGLE'
 const TOPIC_KEY = 'topic'
 
+const head = `
+<head>
+  <link rel="stylesheet" href="../../stylesheet/style_4_common.css">
+  <link rel="stylesheet" href="../../stylesheet/scriptstyle_4_viewthread.css">
+  <link rel="stylesheet" href="../../stylesheet/style_4_seditor.css">
+  <link rel="stylesheet" href="../../stylesheet/style_4_special.css">
+</head>`
+const styles = `<style>.t_msgfontfix{width: 960px;}t</style>`
+
 chrome.runtime.onMessage.addListener(async function (request, sender, sendResponse) {
   console.log('消息：', request, sender, sendResponse)
   const { cmd, result, options } = request
@@ -31,13 +40,29 @@ async function create(result = [], cmd, options) {
     element.blob = url
 
     const { allPage } = options || {}
-    const { author, authorLink } = element
+    const { author, authorLink, url: topicURL } = element
     let _text = text
     if (!allPage) {
       _text = insert(_text, makeAuthorHtml({ author, authorLink }))
     }
+
+    const htmls = [_text]
+    if (allPage) {
+      htmls.unshift(head)
+    } else {
+      htmls.unshift(styles)
+    }
+    const div = document.createElement('div');
+    div.innerHTML = htmls.join('\n\t');
+
+    formatLink(div, topicURL);
+    removeAds(div);
+    removeScripts(div);
+    removeAttributes(div);
     // TODO 改成配置选项
-    const html = updateAttribute(_text, options)
+    updateAttribute(div);
+
+    const html = div.innerHTML;
     const htmlBlob = new Blob([html], {
       type: "text/html"
     })
@@ -50,7 +75,7 @@ async function create(result = [], cmd, options) {
 }
 
 
-const i = [
+const default_images = [
   'attachimg.gif',   'back.gif',        'biggrin.gif',     'call.gif',
   'cry.gif',         'curse.gif',       'dafa.gif',
   'desktop.png',     'ding.png',        'ding_big2.png',
@@ -64,43 +89,18 @@ const i = [
   'smile.gif',       'star_level1.gif', 'star_level2.gif',
   'star_level3.gif', 'sweat.gif',       'time.gif',
   'titter.gif',      'tongue.gif',      'userinfo.gif',
-  'victory.gif'
+  'victory.gif',     '001.gif'
 ];
-const head = `
-<head>
-  <link rel="stylesheet" href="../../stylesheet/style_4_common.css">
-  <link rel="stylesheet" href="../../stylesheet/scriptstyle_4_viewthread.css">
-  <link rel="stylesheet" href="../../stylesheet/style_4_seditor.css">
-  <link rel="stylesheet" href="../../stylesheet/style_4_special.css">
-</head>`
-const styles = `<style>.t_msgfontfix{width: 960px;}t</style>`
-function updateAttribute(html, options) {
-  const { allPage } = options || {}
-  const div = document.createElement('div')
-  const htmls = [html]
-  if (allPage) {
-    htmls.unshift(head)
-  } else {
-    htmls.unshift(styles)
-  }
-  div.innerHTML = htmls.join('\n\t');
-
-  removeAds(div);
-  removeScripts(div);
-  removeAttributes(div);
-
-  [...div.querySelectorAll('img')].forEach(image => {
+function updateAttribute(ele) {
+  [...ele.querySelectorAll('img')].forEach(image => {
     const src = image.getAttribute('src')
     const { base } = pathParse(src)
-    if (src && i.includes(base)) {
+    if (src && default_images.includes(base)) {
       image.setAttribute('src', `../../default_images/${base}`)
-    } else if (src && !i.includes(base)) {
+    } else if (src && !default_images.includes(base)) {
       image.setAttribute('src', `images/${base}`)
     }
-
   })
-
-  return div.innerHTML
 }
 
 function removeAds(ele) {
@@ -118,7 +118,7 @@ function removeScripts(ele) {
 }
 
 function removeAttributes(ele) {
-  const removeAttrs = ['onmouseover', 'onclick'];
+  const removeAttrs = ['onmouseover', 'onclick', 'onload'];
   // 获取所有的 <script> 元素
   const allTags = ele?.getElementsByTagName('*') || ele?.querySelectorAll('*');
   for (const element of allTags) {
@@ -129,6 +129,17 @@ function removeAttributes(ele) {
       }
     })
   }
+}
+
+function formatLink(ele, url) {
+  const { origin } = new URL(url);
+  [...ele?.querySelectorAll('a')].forEach(link => {
+    const href = link.getAttribute('href')
+    if (href && !href.startsWith('http')) {
+      link.setAttribute('href', `${origin}/${href}`)
+      link.setAttribute('target', '_blank')
+    }
+  })
 }
 
 function makeAuthorHtml(info = {}) {
