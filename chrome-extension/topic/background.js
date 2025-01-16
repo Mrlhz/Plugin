@@ -19,6 +19,8 @@ const outputPath = 'md' // markdown
 const outputImagesPath = `${outputPath}/images`
 const filters = ['back.gif']
 
+const globalSet = new Set()
+
 const menus = [
   {
     'id': TOPIC,
@@ -49,6 +51,17 @@ chrome.runtime.onInstalled.addListener(function () {
     })
   })
 })
+
+
+chrome.downloads.onChanged.addListener(async (downloadDelta) => {
+  if (!downloadDelta.state || downloadDelta.state.current !== 'complete') {
+    globalSet.add(downloadDelta.id)
+  }
+  if (downloadDelta?.state?.current === 'complete' || downloadDelta?.error) {
+    globalSet.delete(downloadDelta.id)
+  }
+})
+
 
 chrome.contextMenus.onClicked.addListener(async function (info, tab) {
   console.log(info, tab)
@@ -221,18 +234,19 @@ async function downloadSingleImage(list = [], dir) {
 
     const imagesList = await pathExists(body)
 
-    const tasks = imagesList.map(file => {
-      return chrome.downloads.download(file).then(downloadId => {
+    const downloadList = [...imagesList]
+    while (downloadList.length) {
+      if (globalSet.size >= 3) {
+        await sleep(3000);
+        continue
+      }
+      const image = downloadList.shift()
+      await chrome.downloads.download(image).then(downloadId => {
         return { downloadId }
       }).catch(error => {
-        console.log({ ...file, error })
-        notice({ message: `${error?.message}: ${file.filename}` })
+        console.log({ ...image, error })
+        notice({ message: `${error?.message}: ${image.filename}` })
       })
-    })
-    
-    await Promise.all(tasks)
-    if (imagesList.length) {
-      await sleep(5000)
     }
 
   }
