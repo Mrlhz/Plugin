@@ -14,10 +14,11 @@ const server = http.createServer(async (req, res) => {
   // 第二个参数为 true，表示解析查询字符串
   const parsedUrl = url.parse(req.url, true);
 
-  console.log(parsedUrl)
+  console.log(parsedUrl);
+  const { pathname } = parsedUrl
 
   // 检查请求方法和 URL 路径
-  if (req.method === `POST` && parsedUrl.pathname === `/pathExists`) {
+  if (req.method === `POST` && pathname === `/pathExists`) {
     // 设置响应头部，内容类型为 JSON
     res.setHeader(`Content-Type`, `application/json`);
 
@@ -28,6 +29,16 @@ const server = http.createServer(async (req, res) => {
     const data = JSON.parse(body)
     const result = await pathExists(data)
     console.log({ result })
+    res.writeHead(200);
+    res.end(JSON.stringify({
+      msg: 'success',
+      result
+    }));
+  } else if (req.method === `POST` && pathname.startsWith('/fsPromises')) {
+    const body = await parseRequest(req);
+    const params = JSON.parse(body);
+    const method = getMethod(pathname);
+    const result = await fsPromises(method, ...params);
     res.writeHead(200);
     res.end(JSON.stringify({
       msg: 'success',
@@ -121,4 +132,17 @@ function formatData(str, contentType) {
       break;
   }
   return result;
+}
+
+function getMethod(pathname = '') {
+  return pathname?.split('/').at(-1)
+}
+
+function fsPromises(method, ...args) {
+  const func = fs.promises[method]
+  if (func && typeof func === 'function') {
+    return func(...args)
+  }
+
+  return Promise.resolve({})
 }
