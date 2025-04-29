@@ -2,6 +2,8 @@ import { getTopicDetail } from './js/dom.js'
 import { setupOffscreenDocument, pathParse, sleep, safeFileName, slug, parseQuery } from './js/utils.js'
 import { getAllWindow, getCurrentTab } from './js/helper.js'
 import { pathExists, notice } from './js/pathExists.js'
+import { setClass } from './js/searchpost.js';
+import { outputSearchpost } from './js/space.js';
 
 const TOPIC_KEY = 'topic'
 const TOPIC = 'TOPIC'
@@ -52,6 +54,18 @@ chrome.runtime.onInstalled.addListener(function () {
   })
 })
 
+chrome.tabs.onUpdated.addListener(async function(tabId, changeInfo, tab) {
+  console.log({ tabId, changeInfo, tab });
+  const storage = await chrome.storage.local.get(null)
+  const isTarget = changeInfo.url?.startsWith('http');
+  if (isTarget && changeInfo.status === 'complete') {
+    try {
+      await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: setClass, args: [{ storage }] });
+    } catch (error) {
+      console.log(error)
+    }
+  }
+});
 
 chrome.downloads.onChanged.addListener(async (downloadDelta) => {
   if (!downloadDelta.state || downloadDelta.state.current !== 'complete') {
@@ -61,7 +75,6 @@ chrome.downloads.onChanged.addListener(async (downloadDelta) => {
     globalSet.delete(downloadDelta.id)
   }
 })
-
 
 chrome.contextMenus.onClicked.addListener(async function (info, tab) {
   console.log(info, tab)
@@ -87,7 +100,13 @@ chrome.contextMenus.onClicked.addListener(async function (info, tab) {
 chrome.commands.onCommand.addListener(async (command) => {
   console.log(`Command "${command}" triggered`)
   if (command === 'RUN_TOPIC_SINGLE') {
-    await getOneTopic(BACKGROUND_TO_OFFSCREEN__SINGLE)
+    const tab = await getCurrentTab()
+    const { pathname } = new URL(tab.url)
+    if (pathname === '/space.php') {
+      await outputSearchpost(tab)
+    } else {
+      await getOneTopic(BACKGROUND_TO_OFFSCREEN__SINGLE)
+    }
   }
   if (command === 'RUN_TOPIC_LIST_SINGLE') {
     await getTopicList(BACKGROUND_TO_OFFSCREEN__SINGLE)
@@ -158,13 +177,13 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
 
   if (cmd === OFFSCREEN_TO_BACKGROUND__SINGLE) {
     await downloadFile([
-      {
-        list: result,
-        dir: outputPath,
-        dirKey: 'author',
-        ext: '.md',
-        blobKey: 'blob'
-      },
+      // {
+      //   list: result,
+      //   dir: outputPath,
+      //   dirKey: 'author',
+      //   ext: '.md',
+      //   blobKey: 'blob'
+      // },
       {
         list: result,
         dir: outputPath,
@@ -196,8 +215,9 @@ async function downloadFile(files = [], options = {}) {
     list.forEach((item) => {
       const { author, title, topic, blob, images, tid, page } = item
       const output = dirKey && dir ? `${dir}/${safeFileName(item[dirKey] || author)}` : dir
-      const _title = allPage ? `${title}_page${page || 1}` : title
-      const filename = `${slug(output)}/${safeFileName(_title)}${ext}`
+      let _title = `${title}__${tid}`;
+      _title = allPage ? `${_title}_page${page || 1}` : _title;
+      const filename = `${slug(output)}/${safeFileName(_title)}${ext}`;
       result.push({ url: item[blobKey], filename, title, tid })
     })
 
@@ -233,11 +253,10 @@ async function downloadSingleImage(list = [], dir) {
     })
 
     const imagesList = await pathExists(body)
-
     const downloadList = [...imagesList]
     while (downloadList.length) {
       if (globalSet.size >= 3) {
-        await sleep(3000);
+        await sleep(1500);
         continue
       }
       const image = downloadList.shift()
