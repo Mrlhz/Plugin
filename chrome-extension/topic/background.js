@@ -17,6 +17,8 @@ const TOPIC_LIST_SINGLE = 'TOPIC_LIST_SINGLE'
 const BACKGROUND_TO_OFFSCREEN__SINGLE = 'BACKGROUND_TO_OFFSCREEN__SINGLE'
 const OFFSCREEN_TO_BACKGROUND__SINGLE = 'OFFSCREEN_TO_BACKGROUND__SINGLE'
 
+const AUTHOR_ID = 'AUTHOR_ID'
+
 const outputPath = 'md' // markdown
 const outputImagesPath = `${outputPath}/images`
 const filters = ['back.gif']
@@ -147,8 +149,36 @@ async function getTopicDetails(tabs = [], options = {}) {
       .then(([{ documentId, frameId, result }]) => result)
   })
 
-  const result =  await Promise.all(tasks)
-  return result.filter(item => item[TOPIC_KEY])
+  const taskResult = await Promise.all(tasks)
+  const result = taskResult.filter(item => item[TOPIC_KEY])
+
+  await setAuthor(result);
+
+  return result
+}
+async function setAuthor(data = []) {
+  for (const item of data) {
+    let author = item.author;
+    const { authorLink, page, tid } = item;
+
+    if (!page || page == '1') {
+      const { uid } = parseQuery(new URL(authorLink).search);
+      item.authorId = uid;
+
+      let authorIds = (await chrome.storage.local.get(AUTHOR_ID))[AUTHOR_ID] || {};
+      if (!authorIds[uid]) {
+        authorIds[uid] = author;
+        await chrome.storage.local.set({ [AUTHOR_ID]: authorIds })
+      }
+    }
+
+    // else
+    if (page >= 2) {
+      const info = (await chrome.storage.local.get(tid))[tid];
+      item.authorId = info?.authorId
+      item.author = info?.author
+    }
+  }
 }
 
 
@@ -213,12 +243,12 @@ async function downloadFile(files = [], options = {}) {
 
     const { allPage } = options || {}
     list.forEach((item) => {
-      const { author, title, topic, blob, images, tid, page } = item
+      const { author, title, topic, blob, images, tid, page, authorId } = item
       const output = dirKey && dir ? `${dir}/${safeFileName(item[dirKey] || author)}` : dir
       let _title = `${title}__${tid}`;
       _title = allPage ? `${_title}_page${page || 1}` : _title;
       const filename = `${slug(output)}/${safeFileName(_title)}${ext}`;
-      result.push({ url: item[blobKey], filename, title, tid })
+      result.push({ url: item[blobKey], filename, title, tid, authorId, author })
     })
 
   }
@@ -310,7 +340,7 @@ function filterAlreadyExists(allList = [], filters = []) {
 
 async function setStorage(list = []) {
   for (const item of list) {
-    const { tid, title } = item
-    await chrome.storage.local.set({ [tid]: title })
+    const { tid, title, authorId, author } = item
+    await chrome.storage.local.set({ [tid]: { title, authorId, author } })
   }
 }
