@@ -7,6 +7,7 @@ export function getVideoDetailsHtml() {
   let title = document.querySelector('#videodetails.videodetails-yakov .login_register_header')
   let time = document.querySelector('#videodetails-content .title-yakov')
   let author = document.querySelector('#videodetails-content .title-yakov .title')
+  // document.querySelectorAll('#videodetails-content div').item(1).innerText
   let download = [...document.querySelectorAll('.boxPart .floatmenu a')].filter(item => item.innerText.includes('下载'))
   title = title ? title.innerText.trim() : ''
   time = time ? time.innerText.trim() : ''
@@ -52,6 +53,11 @@ export function getWellList() {
 
   return Array.from(wellList).map(item => {
     let videoTitle = item.querySelector('.video-title')
+    // const links = [...item.querySelectorAll('a')]
+    // let link = links.find(a => {
+    //   const link = a.getAttribute('href')
+    //   return link && link.includes('http')
+    // })
     let link = getValidLink(item)
     let url = link ? link.getAttribute('href') : ''
     let title = videoTitle ? videoTitle.innerText || '' : ''
@@ -217,6 +223,7 @@ export function getMovieDetail() {
       images.push({
         name: `${info1.av}${extname(screencap)}`,
         url: screencap && screencap.includes('http') ? screencap : location.origin + screencap,
+        cover: true
       })
     }
     // 演员
@@ -250,4 +257,38 @@ export function getQuarkFiles() {
     .map(item => item.innerText)
     .filter(text => text.includes('.rar'))
     .join('\n')
+}
+
+export function getTopicDetail() {
+  // data-testid="tweet" 
+  const author = document.querySelector('div[data-testid="User-Name"]')?.innerText || '';
+  const topicDom = document.querySelector('div[data-testid="tweetText"]');
+  const datetime = document.querySelector('time[datetime]') || '';
+  // 无权限
+  if (!topicDom) {
+    return {
+      topic: '',
+      url: window.location.href
+    }
+  }
+
+
+  const images = [...document.querySelectorAll('img[alt="Image"]')]
+    .map(image => {
+      const src = image.getAttribute('src') // https://pbs.twimg.com/media/GYTkmUWaQAAy9xr?format=jpg&name=large
+      return {
+        src,
+        // https://pbs.twimg.com/media/GYTkmUWaQAAy9xr
+        format: src.includes('?') ? src.split('?')[0] : src
+      }
+    })
+
+  return {
+    topic: topicDom?.innerText?.trim(),
+    author: author ? author.replace('\n', '') : '',
+    datetime: datetime ? datetime.getAttribute('datetime') : '',
+    images,
+    url: window.location.href
+  }
+
 }
