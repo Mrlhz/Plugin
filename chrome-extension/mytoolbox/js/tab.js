@@ -237,7 +237,8 @@ const data = [{
     type: ""
   },
   {
-    url: "https://developer.chrome.com/docs/extensions/mv3/",
+    // url: "https://developer.chrome.com/docs/extensions/mv3/",
+    url: "https://developer.chrome.google.cn/docs/extensions/reference/api?hl=zh-cn",
     img: "../image/chrome-icon.png",
     title: "Chrome Extensions",
     desc: "Chrome Extensions Documentation",
@@ -246,6 +247,7 @@ const data = [{
   {
     // url: "https://go.tofly.cyou/user",
     url: "https://w1.v2free.top/user",
+    // url: "https://v2free.top/user",
     img: "../image/v2free.png",
     title: "V2free",
     desc: "科学上网",
@@ -280,17 +282,17 @@ const data = [{
     type: ""
   },
   {
-    url: "https://bbs.mihoyo.com/ys/strategy/?bbs_presentation_style=no_header",
-    img: "../image/xp.png",
-    title: "原神-观测攻略",
-    desc: "旅行者创作平台-观测枢-原神wiki",
+    url: "https://copilot.microsoft.com/chats/ngyjzqkmCLQvF9JhevPgZ",
+    img: "../image/copilot.svg",
+    title: "Copilot",
+    desc: "Microsoft Copilot: 你的 AI 助手",
     type: ""
   },
   {
-    url: "https://bbs.mihoyo.com/ys/obc/?bbs_presentation_style=no_header",
-    img: "../image/youla.png",
-    title: "原神-观测wiki",
-    desc: "旅行者创作平台-观测枢-原神wiki",
+    url: "https://astexplorer.net/",
+    img: "../image/astexplorer.png",
+    title: "AST Explorer",
+    desc: "AST Explorer是一个用于探索抽象语法树（AST）的在线工具，支持多种解析器（如Babel、esprima等），可实时可视化代码的AST结构。",
     type: ""
   }
   // {

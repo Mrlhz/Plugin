@@ -1,0 +1,84 @@
+{
+  "manifest_version": 3,
+  "version": "1.0",
+  "name": "Douyin Extension",
+  "description": "douyin Extension",
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [{
+    "css": [
+      "css/douyin.css"
+    ],
+    "js" : ["js/content-script.js"],
+    "matches": [
+      "*://localhost/*",
+      "*://*/*",
+      "<all_urls>"
+    ]
+  }],
+  "commands": {
+    "RUN_ALT_S": {
+      "suggested_key": {
+        "default": "Alt+1",
+        "mac": "Alt+1"
+      },
+      "description": "Run \"run alt s\" on the current page."
+    },
+    "RUN_ALT_L": {
+      "suggested_key": {
+        "default": "Alt+L",
+        "mac": "Alt+L"
+      },
+      "description": "Run \"run alt l\" on the current page."
+    },
+    "RUN_ALT_A": {
+      "suggested_key": {
+        "default": "Alt+A",
+        "mac": "Alt+A"
+      },
+      "description": "Run \"run alt a\" on the current page."
+    },
+    "RUN_ALT_T": {
+      "suggested_key": {
+        "default": "Alt+T",
+        "mac": "Alt+T"
+      },
+      "description": "Run \"run alt a\" on the current page."
+    }
+  },
+  "web_accessible_resources": [{
+    "resources": ["js/*"], 
+    "matches": ["<all_urls>"]
+  }],
+  "permissions": [
+    "activeTab",
+    "contextMenus",
+    "downloads",
+    "scripting",
+    "tabs",
+    "webRequest",
+    "storage",
+    "offscreen",
+    "notifications"
+  ],
+  "host_permissions": [
+    "http://www.douyin.com/*",
+    "https://www.douyin.com/*"
+  ],
+  "icons": {
+    "16": "images/douyin.png",
+    "48": "images/douyin.png",
+    "128": "images/douyin.png"
+  },
+  "action": {
+    "default_icon": {
+      "16": "images/douyin.png",
+      "24": "images/douyin.png",
+      "32": "images/douyin.png"
+    },
+    "default_title": "Extension",
+    "default_popup": "popup.html"
+  }
+}
