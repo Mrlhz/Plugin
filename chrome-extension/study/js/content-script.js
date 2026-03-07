@@ -95,6 +95,16 @@ function getImageAsDataUrl(callback) {
 // 监听 background 或 popup 发来的消息
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'getCoverImage') {
+    return onMessage(message, sender, sendResponse);
+  }
+
+  // 表示将异步返回结果
+  return true;
+});
+
+async function onMessage(message, sender, sendResponse) {
+  console.log('content-script 收到消息：', message, sender);
+  if (message.action === 'getCoverImage') {
     const url = getCoverImageUrl();
     if (!url) {
       sendResponse({ error: 'Cover image not found' });
@@ -102,14 +112,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     getImageAsDataUrl(({ url, code, starName }) => {
-      const filename = `${starName}/${code}/${code || 'cover'}.jpg`
+      const filename = `${starName}/${code}/${code || 'javbus_cover'}.jpg`
       sendResponse({ dataUrl: url, filename });
     });
-
-    // 表示将异步返回结果
-    return true;
   }
-});
+}
+
 
 
 function getCode() {
