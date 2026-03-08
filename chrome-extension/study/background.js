@@ -19,8 +19,11 @@ console.log(cacheName)
 
 chrome.action.onClicked.addListener(tab => {
   // 仅处理 target 页面
-  if (!tab.url?.includes('target.com')) {
-    console.warn('Not on target page');
+  const mapUrl = new Map([
+    ['www.target.com', true],
+  ]);
+  if (!mapUrl.has(new URL(tab.url).hostname)) {
+    console.warn('Not on JavBus page');
     return;
   }
 
@@ -40,9 +43,9 @@ chrome.action.onClicked.addListener(tab => {
       return;
     }
 
-    if (response?.dataUrl) {
+    if (response?.url) {
       chrome.downloads.download({
-        url: response.dataUrl,
+        url: response.url,
         filename: response.filename,
         saveAs: false
       }, downloadId => {

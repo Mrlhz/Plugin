@@ -94,28 +94,58 @@ function getImageAsDataUrl(callback) {
 
 // 监听 background 或 popup 发来的消息
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === 'getCoverImage') {
-    return onMessage(message, sender, sendResponse);
-  }
+  // 使用 async IIFE (立即执行函数表达式) 来处理异步逻辑
+  (async () => {
+    try {
+      if (message.action === 'getCoverImage') {
+        console.log('content-script 收到消息：', message);
+        
+        const url = getCoverImageUrl();
+        if (!url) {
+          // 同步错误：直接返回
+          sendResponse({ error: 'Cover image not found' });
+          return;
+        }
 
-  // 表示将异步返回结果
+        // getImageAsDataUrl 返回一个 Promise
+        const result = await getImageAsDataUrlPromise(url); 
+        
+        const filename = `${result.starName}/${result.code}/${result.code || 'cover'}.jpg`;
+        
+        // 成功：发送数据
+        sendResponse({ url: result.url, filename });
+      } else {
+        // 未知动作
+        sendResponse({ error: 'Unknown action' });
+      }
+    } catch (err) {
+      console.log('Content script processing error:', err);
+      // 异常：发送错误信息，防止端口关闭报错
+      sendResponse({ error: err.message || 'Internal server error in content script' });
+    }
+  })();
+
+  // 重要：返回 true 表示我们将异步发送响应
   return true;
 });
 
-async function onMessage(message, sender, sendResponse) {
-  console.log('content-script 收到消息：', message, sender);
-  if (message.action === 'getCoverImage') {
-    const url = getCoverImageUrl();
-    if (!url) {
-      sendResponse({ error: 'Cover image not found' });
-      return;
-    }
-
-    getImageAsDataUrl(({ url, code, starName }) => {
-      const filename = `${starName}/${code}/${code || 'javbus_cover'}.jpg`
-      sendResponse({ dataUrl: url, filename });
+/**
+ * 辅助函数：getImageAsDataUrl 是旧式的回调风格，将其包装为 Promise
+ */
+function getImageAsDataUrlPromise(url) {
+  return new Promise((resolve, reject) => {
+    // 调用原有的回调风格函数
+    getImageAsDataUrl((result) => {
+      if (result && result.url) {
+        resolve(result);
+      } else {
+        reject(new Error('Failed to get image data'));
+      }
     });
-  }
+    
+    // 【可选】添加超时保护，防止回调永远不触发导致端口挂起
+    // setTimeout(() => reject(new Error('Get image timeout')), 5000); 
+  });
 }
 
 
