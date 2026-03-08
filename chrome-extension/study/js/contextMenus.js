@@ -6,14 +6,15 @@ import { menus } from '../config.js'
 import { executeScript, getCurrentTab, getAllWindow, wait, pathParse, safeFileName, getSearchParams, getLocalStorage } from './helper.js'
 import { getVideoDetailsHtml, getHdLink, pages, setTitle } from './dom.js'
 import { getVideoBriefInfo } from './core/getVideoBriefInfo.js'
-import { downloadMovieImageList, downloadStarAvatarList, setupOffscreenDocument } from './core/downloadManage.js'
+import { getMovieImageList, downloadMovieImageList, downloadStarAvatarList, setupOffscreenDocument } from './core/downloadManage.js'
 import { newTabs } from './core/newTabs.js'
 import strategy from './Strategy.js'
 
 strategy.on(downloadVideo)
 strategy.on('overrideDownloadVideo', downloadVideo)
 strategy.on('downloadMovieImage', async({ currentTab }) => {
-  const result = await downloadMovieImageList({ currentTab })
+  const res = await getMovieImageList({ currentTab });
+  const result = await downloadMovieImageList(res);
   await setupOffscreenDocument()
   chrome.runtime.sendMessage({ cmd: 'background_to_offscreen', result }, function (response) {
     console.log('收到来自 offscreen 的回复：', response)

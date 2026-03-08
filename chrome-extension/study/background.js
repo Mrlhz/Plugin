@@ -6,6 +6,8 @@ import { cacheName } from './config.js'
 
 import blogMenuInit from './js/menus/busjav.blog.js'
 
+import { downloadMovieImageList } from './js/core/downloadManage.js'
+
 import './js/event.js'
 
 
@@ -43,17 +45,11 @@ chrome.action.onClicked.addListener(tab => {
       return;
     }
 
-    if (response?.url) {
-      chrome.downloads.download({
-        url: response.url,
-        filename: response.filename,
-        saveAs: false
-      }, downloadId => {
-        if (chrome.runtime.lastError) {
-          console.error('Download failed:', chrome.runtime.lastError);
-        } else {
-          console.log('Download started, ID:', downloadId);
-        }
+    if (response) {
+      downloadMovieImageList(response).then(result => {
+        console.log('Download result:', result, response);
+      }).catch(err => {
+        console.log('Download error:', err);
       });
     }
   });

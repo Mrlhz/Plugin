@@ -46,7 +46,7 @@ function copyToClipboard(text) {
 /**
  * 获取封面图的绝对 URL（处理相对路径）
  */
-function getCoverImageUrl() {
+function getCoverImage() {
   const imgEl = document.querySelector('.screencap img');
   if (!imgEl) return null;
 
@@ -62,34 +62,9 @@ function getCoverImageUrl() {
     src = new URL(src, location.href).href;
   }
 
-  return src;
-}
+  const { ext } = pathParse(src);
 
-/**
- * 将 <img> 转为 Data URL（绕过 CORS + Referer 限制）
- */
-function getImageAsDataUrl(callback) {
-  const code = getCode();
-  const star = getStar();
-  const starName = star.length === 1 ? star[0]?.name : 'todo';
-  const imgEl = document.querySelector('.screencap img');
-  if (!imgEl || !imgEl.complete) {
-    // 图片未加载完成，等待 onload
-    imgEl?.addEventListener('load', () => getImageAsDataUrl(callback), { once: true });
-    return;
-  }
-
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-  canvas.width = imgEl.naturalWidth || imgEl.width;
-  canvas.height = imgEl.naturalHeight || imgEl.height;
-  ctx.drawImage(imgEl, 0, 0);
-
-  canvas.toBlob(blob => {
-    const reader = new FileReader();
-    reader.onload = () => callback({ url: reader.result, code, starName }); // data:image/jpeg;base64,...
-    reader.readAsDataURL(blob);
-  }, 'image/jpeg', 0.95);
+  return { url: src, ext };
 }
 
 // 监听 background 或 popup 发来的消息
@@ -99,21 +74,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     try {
       if (message.action === 'getCoverImage') {
         console.log('content-script 收到消息：', message);
-        
-        const url = getCoverImageUrl();
-        if (!url) {
-          // 同步错误：直接返回
-          sendResponse({ error: 'Cover image not found' });
-          return;
-        }
 
         // getImageAsDataUrl 返回一个 Promise
-        const result = await getImageAsDataUrlPromise(url); 
-        
-        const filename = `${result.starName}/${result.code}/${result.code || 'cover'}.jpg`;
-        
+        const result = await getImageAsDataUrlPromise();
         // 成功：发送数据
-        sendResponse({ url: result.url, filename });
+        sendResponse(result);
       } else {
         // 未知动作
         sendResponse({ error: 'Unknown action' });
@@ -128,27 +93,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // 重要：返回 true 表示我们将异步发送响应
   return true;
 });
-
-/**
- * 辅助函数：getImageAsDataUrl 是旧式的回调风格，将其包装为 Promise
- */
-function getImageAsDataUrlPromise(url) {
-  return new Promise((resolve, reject) => {
-    // 调用原有的回调风格函数
-    getImageAsDataUrl((result) => {
-      if (result && result.url) {
-        resolve(result);
-      } else {
-        reject(new Error('Failed to get image data'));
-      }
-    });
-    
-    // 【可选】添加超时保护，防止回调永远不触发导致端口挂起
-    // setTimeout(() => reject(new Error('Get image timeout')), 5000); 
-  });
-}
-
-
 
 function getCode() {
   const code = document.querySelector("body > div.container > div.row.movie > div.col-md-3.info > p:nth-child(1) > span:nth-child(2)")?.innerText;
@@ -172,4 +116,190 @@ function getStar() {
     }
   });
   return star;
+}
+
+
+/**
+ * 将 <img> 转为 Data URL（绕过 CORS + Referer 限制）
+ * 特点：
+ * 1. 自动处理图片未加载完成的情况（监听 load 事件）
+ * 2. 自动处理图片加载失败的情况（监听 error 事件）
+ * 3. 包含超时保护，防止因图片永远不加载导致 Promise 挂起
+ * 4. 返回完整的结果对象 { url, code, starName }
+ */
+function getImageAsDataUrlPromise(image = {}, timeoutMs = 10000) {
+  const { url, ext } = getCoverImage();
+  const { selector = '.screencap img' } = image;
+  return new Promise((resolve, reject) => {
+    const code = getCode();
+    const star = getStar();
+    const starName = star.length === 1 ? star[0]?.name : 'todo';
+    
+    const imgEl = document.querySelector(selector);
+
+    if (!url) {
+      return reject(new Error('Cover image URL not found'));
+    }
+
+    // 1. 基础检查：元素是否存在
+    if (!imgEl) {
+      return reject(new Error('Image element not found with selector: ' + selector)); // Image element (.screencap img) not found
+    }
+
+    // 2. 定义核心处理逻辑
+    const processImage = () => {
+      try {
+        // 再次检查完整性（以防竞态条件）
+        if (!imgEl.complete || imgEl.naturalWidth === 0) {
+          return reject(new Error('Image loaded but invalid or empty'));
+        }
+
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // 设置画布尺寸
+        canvas.width = imgEl.naturalWidth || imgEl.width;
+        canvas.height = imgEl.naturalHeight || imgEl.height;
+        
+        // 绘制图片
+        ctx.drawImage(imgEl, 0, 0);
+
+        // 转换为 Blob
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            return reject(new Error('Failed to create blob from canvas'));
+          }
+
+          const reader = new FileReader();
+          
+          reader.onload = () => {
+            resolve({
+              images: [{ url: reader.result, cover: true, name: `${code}${ext}` }],
+              av: code,
+              // starName,
+              star
+            });
+          };
+          
+          reader.onerror = () => {
+            reject(new Error('FileReader failed to read blob'));
+          };
+
+          reader.readAsDataURL(blob);
+        }, 'image/jpeg', 0.95);
+
+      } catch (err) {
+        reject(err);
+      }
+    };
+
+    // 3. 状态判断与事件绑定
+    if (imgEl.complete && imgEl.naturalWidth !== 0) {
+      // 情况 A: 图片已加载完成，直接处理
+      // 使用 setTimeout 确保异步执行，保持 Promise 行为一致
+      setTimeout(processImage, 0);
+    } else if (imgEl.error) {
+      // 情况 B: 图片已经加载失败
+      reject(new Error(`Image failed to load: ${imgEl.src}`));
+    } else {
+      // 情况 C: 图片正在加载中，绑定事件
+      const onLoad = () => {
+        cleanup();
+        processImage();
+      };
+
+      const onError = () => {
+        cleanup();
+        reject(new Error(`Image failed to load during wait: ${imgEl.src}`));
+      };
+
+      imgEl.addEventListener('load', onLoad, { once: true });
+      imgEl.addEventListener('error', onError, { once: true });
+
+      // 清理函数：移除监听器，防止内存泄漏或重复触发
+      const cleanup = () => {
+        imgEl.removeEventListener('load', onLoad);
+        imgEl.removeEventListener('error', onError);
+        clearTimeout(timeoutTimer);
+      };
+
+      // 4. 超时保护
+      const timeoutTimer = setTimeout(() => {
+        cleanup();
+        reject(new Error(`Timeout: Image did not load within ${timeoutMs}ms`));
+      }, timeoutMs);
+    }
+  });
+}
+
+
+function imageUrlToBase64(url) {
+  return new Promise((resolve, reject) => {
+      const img = new Image();
+      // 关键：允许跨域图片（如果图片源支持 CORS）
+      img.crossOrigin = 'Anonymous'; 
+      
+      img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          
+          // 默认输出为 image/png 格式
+          const base64 = canvas.toDataURL('image/png');
+          resolve(base64);
+      };
+      
+      img.onerror = (err) => {
+          reject(err);
+      };
+      
+      img.src = url;
+  });
+}
+
+// 使用示例
+// const imgUrl = 'https://example.com/image.jpg';
+// imageUrlToBase64(imgUrl)
+//     .then(base64Str => {
+//         console.log('转换成功:', base64Str);
+//         // 此时 base64Str 格式如: "data:image/png;base64,iVBORw0KGgo..."
+//     })
+//     .catch(err => {
+//         console.error('转换失败:', err);
+//     });
+
+// 非 Canvas 方案 (同样受 CORS 限制)
+async function urlToBase64Fetch(url) {
+  const response = await fetch(url);
+  const blob = await response.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+function pathParse(pathString) {
+  if (typeof pathString !== 'string') {
+    throw new TypeError("Parameter 'pathString' must be a string, not " + typeof pathString)
+  }
+  var allParts = win32SplitPath(pathString)
+  if (!allParts || allParts.length !== 5) {
+    throw new TypeError("Invalid path '" + pathString + "'")
+  }
+  return {
+    root: allParts[1],
+    dir: allParts[0] === allParts[1] ? allParts[0] : allParts[0].slice(0, -1),
+    base: allParts[2],
+    ext: allParts[4],
+    name: allParts[3]
+  }
+  function win32SplitPath(filename) {
+    const splitWindowsRe = /^(((?:[a-zA-Z]:|[\\\/]{2}[^\\\/]+[\\\/]+[^\\\/]+)?[\\\/]?)(?:[^\\\/]*[\\\/])*)((\.{1,2}|[^\\\/]+?|)(\.[^.\/\\]*|))[\\\/]*$/;
+    return splitWindowsRe.exec(filename).slice(1)
+  }
 }
