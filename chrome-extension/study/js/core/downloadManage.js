@@ -2,18 +2,23 @@ import { executeScript, pathParse } from '../helper.js'
 import { getAvatarList, getMovieDetail } from '../dom.js'
 import { pathExists } from '../pathExists.js'
 
-export async function downloadMovieImageList({ currentTab }) {
+export async function getMovieImageList({ currentTab }) {
   const [{ frameId, result = [] }] = await executeScript(currentTab, getMovieDetail, [])
+  const { av, star, images } = result
+  return result;
+}
+
+export async function downloadMovieImageList(result = {}) {
   const { av, star, images } = result
   console.log(result)
   const filePath = Array.isArray(star) && star.length === 1 ? `${star[0].name}` : 'avatar'
 
-  // TODO: 封面下载不了
-  const filterFlag = true
+  // 封面下载
+  const filterFlag = false;
   const _images = filterFlag ? images.filter(item => !item.cover): images;
 
   const dImages = _images.map(item => {
-    const { name, url } = item
+    const { name, url, cover } = item
     const filename = _images.length === 1 ? `${filePath}/${name}` : `${filePath}/${av}/${name}`
     return { url, filename }
   })
