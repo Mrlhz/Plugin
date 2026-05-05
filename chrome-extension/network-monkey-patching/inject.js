@@ -1,79 +1,74 @@
-// 拦截 Fetch
 (function() {
-  const { fetch: originalFetch } = window;
+  const TARGET_URLS = ['/aweme/v1/web/aweme/detail']; // , '/aweme/v1/web/aweme/related/'
+    console.log("🚀 拦截脚本已就绪...");
 
-  window.fetch = async (...args) => {
-    const response = await originalFetch(...args);
-    const url = args[0] instanceof URL ? args[0].href : args[0];
+    const XHR = XMLHttpRequest.prototype;
+    const originalOpen = XHR.open;
+    const originalSend = XHR.send;
 
-    // 精准匹配抖音详情接口
-    if (url && url.includes('/aweme/v1/web/aweme/detail')) {
-        const clone = response.clone();
-        clone.json().then(data => {
-            console.log("[拦截器] 捕获到视频数据:", data);
-            // 发送给 Content Script
-            window.postMessage({
-                type: 'DOUYIN_DETAIL_DATA',
-                url: url,
-                payload: data
-            }, '*');
-        }).catch(err => console.error("解析失败:", err));
+    XHR.open = function(method, url) {
+        // 将 URL 存储在实例上，方便后续 send 访问
+        this._targetUrl = url; 
+        return originalOpen.apply(this, arguments);
+    };
+
+    XHR.send = function(postData) {
+        // 直接在实例上监听，不使用 addEventListener
+        const xhrInstance = this;
+        const oldOnReadyStateChange = xhrInstance.onreadystatechange;
+
+        xhrInstance.onreadystatechange = function() {
+            if (xhrInstance.readyState === 4) {
+                const currentUrl = xhrInstance._targetUrl || "";
+                
+                // 确认在完成时能不能拿到 URL
+                // console.log("请求完成，检查 URL:", currentUrl);
+                // /aweme/v1/web/aweme/related/ 也可以考虑监控这个接口，可能会有更多数据 currentUrl.includes('/aweme/v1/web/aweme/detail')
+                if (TARGET_URLS.some(endpoint => currentUrl.includes(endpoint))) {
+                    console.log("🎯 发现目标接口 (命中逻辑已执行):", currentUrl);
+                    
+                    try {
+                        let res = xhrInstance.response;
+                        
+                        // 优先处理已经是对象的情况（responseType='json'）
+                        if (typeof res === 'object' && res !== null) {
+                            processData({ url: currentUrl, result: res });
+                        } else {
+                            // 否则按文本处理，处理二进制乱码
+                            if (res instanceof ArrayBuffer) {
+                                res = new TextDecoder('utf-8').decode(res);
+                            }
+                            processData({ url: currentUrl, result: JSON.parse(res) });
+                        }
+                    } catch (e) {
+                        console.error("❌ 解析数据失败:", e);
+                    }
+                }
+            }
+            // 保持原有的逻辑不受影响
+            if (oldOnReadyStateChange) {
+                return oldOnReadyStateChange.apply(xhrInstance, arguments);
+            }
+        };
+
+        return originalSend.apply(this, arguments);
+    };
+
+    function processData(json) {
+        console.log("✅ 成功解析数据内容:", json);
+        window.postMessage({ type: 'DOUYIN_DETAIL_DATA', payload: json }, '*');
     }
 
-    return response;
-  };
-  console.log("[拦截器] 已成功注入抖音页面");
-})();
-
-
-// 拦截 XHR 逻辑同理
-const XHR = XMLHttpRequest.prototype;
-const open = XHR.open;
-const send = XHR.send;
-
-XHR.open = function (method, url) {
-  this._method = method;
-  this._url = url;
-  return open.apply(this, arguments);
-};
-
-XHR.send = function (postData) {
-  this.addEventListener('load', function () {
-    let responseData;
-
-    try {
-      // 根据 responseType 处理数据
-      if (!this.responseType || this.responseType === 'text') {
-        responseData = this.responseText;
-      } else if (this.responseType === 'json') {
-        responseData = this.response;
-      } else if (this.responseType === 'arraybuffer' || this.responseType === 'blob') {
-        // 如果是 arraybuffer，尝试转成文本字符串（针对 JSON 数据）
-        const decoder = new TextDecoder('utf-8');
-        responseData = decoder.decode(this.response);
-      }
-
-      // 尝试将字符串解析为 JSON 对象，方便后续逻辑处理
-      if (typeof responseData === 'string') {
-        try {
-          responseData = JSON.parse(responseData);
-        } catch (e) {
-          // 说明不是 JSON 格式，保持原样
+    // 同时保留 Fetch 拦截作为备份
+    const { fetch: originalFetch } = window;
+    window.fetch = async (...args) => {
+        const url = args[0] instanceof URL ? args[0].href : (typeof args[0] === 'string' ? args[0] : '');
+        const response = await originalFetch(...args);
+        if (url.includes('/aweme/v1/web/aweme/detail')) {
+            console.log("🎯 Fetch 命中目标:", url);
+            const clone = response.clone();
+            clone.json().then(data => processData({ url, result: data })).catch(()=>{});
         }
-      }
-
-      console.log("拦截到 XHR 响应:", responseData);
-
-      if (this._url && this._url.includes('/aweme/v1/web/aweme/detail')) {
-        window.postMessage({
-          type: 'DOUYIN_DETAIL_DATA',
-          url: this._url,
-          payload: responseData // 此时已是 JSON 对象或解码后的字符串
-        }, '*');
-      }
-    } catch (err) {
-      console.error("读取响应数据失败:", err);
-    }
-  });
-  return send.apply(this, arguments);
-};
+        return response;
+    };
+})();
