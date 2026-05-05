@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "permissions": ["storage", "scripting"],
+  "host_permissions": [
+    "https://*://*", 
+    "https://your-api-server.com*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://*://*"],
+      "js": ["inject.js"],
+      "world": "MAIN",
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://*://*"],
+      "js": ["content-bridge.js"] 
+    }
+  ]
+}
