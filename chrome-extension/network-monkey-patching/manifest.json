@@ -1,20 +1,48 @@
 {
   "manifest_version": 3,
-  "permissions": ["storage", "scripting"],
-  "host_permissions": [
-    "https://*://*", 
-    "https://your-api-server.com*"
+  "name": "数据拦截器",
+  "version": "1.0",
+  "permissions": [
+    "storage",
+    "scripting",
+    "downloads"
   ],
+  "host_permissions": [
+    "http://www.douyin.com/*",
+    "https://www.douyin.com/*",
+    "https://*.douyin.com/*",
+    "http://localhost/*",
+    "https://localhost/*",
+    "http://*/*",
+    "https://*/*",
+    "*://*/*",
+    "*://*.douyin.com/*",
+    "https://www.douyin.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
   "content_scripts": [
     {
-      "matches": ["https://*://*"],
+      "matches": [
+        "<all_urls>",
+        "http://*/*",
+        "https://*/*",
+        "https://www.douyin.com/*"
+      ],
       "js": ["inject.js"],
       "world": "MAIN",
       "run_at": "document_start"
     },
     {
-      "matches": ["https://*://*"],
-      "js": ["content-bridge.js"] 
+      "matches": [
+        "<all_urls>",
+        "https://*://*",
+        "https://www.douyin.com/*"
+      ],
+      "js": ["content-script.js"],
+      "world": "ISOLATED"
     }
   ]
 }

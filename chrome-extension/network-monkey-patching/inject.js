@@ -1,5 +1,5 @@
 (function () {
-  const TARGET_URLS = ['/aweme/v1/web/aweme/detail']; // , '/aweme/v1/web/aweme/related/'
+  const TARGET_URLS = ['/aweme/v1/web/aweme/detail', '/aweme/v1/web/aweme/post']; // '/aweme/v1/web/aweme/related/'
   console.log("🚀 拦截脚本已就绪...");
 
   const XHR = XMLHttpRequest.prototype;
@@ -23,7 +23,6 @@
 
         // 确认在完成时能不能拿到 URL
         // console.log("请求完成，检查 URL:", currentUrl);
-        // /aweme/v1/web/aweme/related/ 也可以考虑监控这个接口，可能会有更多数据 currentUrl.includes('/aweme/v1/web/aweme/detail')
         if (TARGET_URLS.some(endpoint => currentUrl.includes(endpoint))) {
           console.log("🎯 发现目标接口 (命中逻辑已执行):", currentUrl);
 
