@@ -2,16 +2,30 @@ class PromisePool {
   constructor(max) {
     this.max = max;
     this.running = 0;
-    this.queue = []; // 存储 { resolve, priority }
+    this.queue = []; 
+  }
+
+  // 辅助方法：找到正确的位置并插入，保持 queue 降序
+  _enqueue(item) {
+    let low = 0;
+    let high = this.queue.length;
+
+    while (low < high) {
+      let mid = (low + high) >>> 1;
+      // 优先级高的排在前面
+      if (this.queue[mid].priority >= item.priority) {
+        low = mid + 1;
+      } else {
+        high = mid;
+      }
+    }
+    this.queue.splice(low, 0, item);
   }
 
   async run(task, priority = 0) {
     if (this.running >= this.max) {
-      // 将 resolve 函数和优先级一起存入队列
       await new Promise(resolve => {
-        this.queue.push({ resolve, priority });
-        // 每次加入新任务后，按优先级从大到小排序
-        this.queue.sort((a, b) => b.priority - a.priority);
+        this._enqueue({ resolve, priority });
       });
     }
 
@@ -22,7 +36,6 @@ class PromisePool {
     } finally {
       this.running--;
       if (this.queue.length > 0) {
-        // 弹出优先级最高（队首）的任务
         const { resolve } = this.queue.shift();
         resolve();
       }
