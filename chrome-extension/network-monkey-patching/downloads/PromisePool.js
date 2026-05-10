@@ -1,14 +1,18 @@
-export class PromisePool {
+class PromisePool {
   constructor(max) {
     this.max = max;
     this.running = 0;
-    this.queue = [];
+    this.queue = []; // 存储 { resolve, priority }
   }
 
-  async run(task) {
-
+  async run(task, priority = 0) {
     if (this.running >= this.max) {
-      await new Promise(resolve => this.queue.push(resolve));
+      // 将 resolve 函数和优先级一起存入队列
+      await new Promise(resolve => {
+        this.queue.push({ resolve, priority });
+        // 每次加入新任务后，按优先级从大到小排序
+        this.queue.sort((a, b) => b.priority - a.priority);
+      });
     }
 
     this.running++;
@@ -18,35 +22,40 @@ export class PromisePool {
     } finally {
       this.running--;
       if (this.queue.length > 0) {
-        const next = this.queue.shift();
-        next();
+        // 弹出优先级最高（队首）的任务
+        const { resolve } = this.queue.shift();
+        resolve();
       }
     }
   }
 }
 
-const pool = new PromisePool(3);
+// --- 测试代码 ---
 
+const pool = new PromisePool(2); // 限制并发为 2
 const sleepTask = (id, ms) => () => 
   new Promise(resolve => {
-    console.log(`任务 ${id} 开始运行`);
     setTimeout(() => {
-      console.log(`任务 ${id} 完成 √`);
+      console.log(`任务 ${id} 完成`);
       resolve(id);
     }, ms);
   });
 
-// 正确的测试方式：通过 pool.run 包装每个任务
-const tasks = [1, 2, 3, 4, 5, 6, 7, 8].map(id => {
-  return pool.run(sleepTask(id, 1000));
-});
+console.log("开始执行...");
 
-// 使用 Promise.all 等待所有任务最终完成
-Promise.all(tasks).then(res => {
-  console.log('所有任务执行完毕:', res);
-});
+// 前 2 个任务会立即占据并发位
+pool.run(sleepTask('Normal-1', 1000), 0);
+pool.run(sleepTask('Normal-2', 1000), 0);
 
-// 核心逻辑解析：
-// 并发限制：由于 max 是 3，你会看到前 3 个任务（1, 2, 3）立即打印“开始运行”。
-// 排队机制：任务 4-8 会进入 this.queue。因为 run 方法里的 await new Promise(...)，这些任务的执行流会卡在那里。
-// 链式唤醒：当任务 1 完成并进入 finally 块时，它执行了 next()（即任务 4 之前存入的 resolve），这让任务 4 的 run 函数继续向下执行。
+// 以下任务进入等待队列
+pool.run(sleepTask('Low-Priority', 1000), 0);
+pool.run(sleepTask('High-Priority', 1000), 10); // 优先级最高
+pool.run(sleepTask('Mid-Priority', 1000), 5);
+
+/* 
+预期输出顺序：
+1. Normal-1 和 Normal-2 完成
+2. High-Priority 完成 (因为它在队列里优先级最高)
+3. Mid-Priority 完成
+4. Low-Priority 完成
+*/
