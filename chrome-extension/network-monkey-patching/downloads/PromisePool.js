@@ -1,31 +1,67 @@
-class PromisePool {
+class PriorityQueue {
+  constructor() {
+    this.heap = [];
+  }
+
+  // 插入元素：插入尾部后向上调整（Bubble Up）
+  push(node) {
+    this.heap.push(node);
+    this._bubbleUp(this.heap.length - 1);
+  }
+
+  // 弹出最高优先级：取出头部后，将尾部移到头部向下调整（Bubble Down）
+  pop() {
+    if (this.size() === 0) return null;
+    const top = this.heap[0];
+    const bottom = this.heap.pop();
+    if (this.size() > 0) {
+      this.heap[0] = bottom;
+      this._bubbleDown(0);
+    }
+    return top;
+  }
+
+  size() {
+    return this.heap.length;
+  }
+
+  _bubbleUp(index) {
+    while (index > 0) {
+      let parentIndex = (index - 1) >> 1;
+      if (this.heap[index].priority <= this.heap[parentIndex].priority) break;
+      [this.heap[index], this.heap[parentIndex]] = [this.heap[parentIndex], this.heap[index]];
+      index = parentIndex;
+    }
+  }
+
+  _bubbleDown(index) {
+    while (true) {
+      let left = (index << 1) + 1;
+      let right = (index << 1) + 2;
+      let highest = index;
+
+      if (left < this.size() && this.heap[left].priority > this.heap[highest].priority) highest = left;
+      if (right < this.size() && this.heap[right].priority > this.heap[highest].priority) highest = right;
+      
+      if (highest === index) break;
+      [this.heap[index], this.heap[highest]] = [this.heap[highest], this.heap[index]];
+      index = highest;
+    }
+  }
+}
+
+export class PromisePool {
   constructor(max) {
     this.max = max;
     this.running = 0;
-    this.queue = []; 
-  }
-
-  // 辅助方法：找到正确的位置并插入，保持 queue 降序
-  _enqueue(item) {
-    let low = 0;
-    let high = this.queue.length;
-
-    while (low < high) {
-      let mid = (low + high) >>> 1;
-      // 优先级高的排在前面
-      if (this.queue[mid].priority >= item.priority) {
-        low = mid + 1;
-      } else {
-        high = mid;
-      }
-    }
-    this.queue.splice(low, 0, item);
+    this.queue = new PriorityQueue(); // 使用堆结构
   }
 
   async run(task, priority = 0) {
     if (this.running >= this.max) {
+      // 封装成 resolve 对象存入堆
       await new Promise(resolve => {
-        this._enqueue({ resolve, priority });
+        this.queue.push({ resolve, priority });
       });
     }
 
@@ -35,8 +71,9 @@ class PromisePool {
       return await task();
     } finally {
       this.running--;
-      if (this.queue.length > 0) {
-        const { resolve } = this.queue.shift();
+      if (this.queue.size() > 0) {
+        // 从堆中取出优先级最高的一个
+        const { resolve } = this.queue.pop();
         resolve();
       }
     }
