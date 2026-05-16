@@ -4,6 +4,17 @@ import { getAllWindow, getCurrentTab } from './js/helper.js'
 import { pathExists, notice } from './js/pathExists.js'
 import { setClass } from './js/searchpost.js';
 import { outputSearchpost } from './js/space.js';
+import { getVideoSource, downloadVideo, downloadVideos } from './js/video.js';
+import { ChromeDownloadPool } from './js/ChromeDownloadPool.js';
+
+// 1. 初始化下载池：限制最大同时下载数为 2
+const downloadPool = new ChromeDownloadPool(2);
+
+// 2. 维护一个全局可变的取消控制器
+let globalCancelController = new AbortController();
+
+// 核心控制变量
+let progressTickerId = null;
 
 const TOPIC_KEY = 'topic'
 const TOPIC = 'TOPIC'
@@ -16,6 +27,8 @@ const TOPIC_SINGLE = 'TOPIC_SINGLE'
 const TOPIC_LIST_SINGLE = 'TOPIC_LIST_SINGLE'
 const BACKGROUND_TO_OFFSCREEN__SINGLE = 'BACKGROUND_TO_OFFSCREEN__SINGLE'
 const OFFSCREEN_TO_BACKGROUND__SINGLE = 'OFFSCREEN_TO_BACKGROUND__SINGLE'
+
+const download_ALL_VIDEO = 'ALT_1'
 
 const AUTHOR_ID = 'AUTHOR_ID'
 
@@ -106,6 +119,10 @@ chrome.commands.onCommand.addListener(async (command) => {
     const { pathname } = new URL(tab.url)
     if (pathname === '/space.php') {
       await outputSearchpost(tab)
+    } else if (pathname === '/view_video.php') {
+      const [{ result }] = await getVideoSource(tab);
+      console.log('视频信息：', result);
+      await downloadVideo(result);
     } else {
       await getOneTopic(BACKGROUND_TO_OFFSCREEN__SINGLE)
     }
@@ -116,6 +133,9 @@ chrome.commands.onCommand.addListener(async (command) => {
   if (command === 'RUN_TOPIC_ALLPAGE') {
     const options = { allPage: true }
     await getOneTopic(BACKGROUND_TO_OFFSCREEN__SINGLE, options)
+  }
+  if (command === download_ALL_VIDEO) {
+    await downloadVideos()
   }
 })
 
@@ -270,6 +290,9 @@ async function downloadFile(files = [], options = {}) {
 }
 
 async function downloadSingleImage(list = [], dir) {
+  
+  // const pool = new ChromeDownloadPool(3); // 限制同时只有 3 个文件在真正写入磁盘
+
   for (let index = 0; index < list.length; index++) {
     const element = list[index];
     const { author, title, topic, blob, images } = element
@@ -283,20 +306,65 @@ async function downloadSingleImage(list = [], dir) {
     })
 
     const imagesList = await pathExists(body)
-    const downloadList = [...imagesList]
-    while (downloadList.length) {
-      if (globalSet.size >= 3) {
-        await sleep(1500);
-        continue
-      }
-      const image = downloadList.shift()
-      await chrome.downloads.download(image).then(downloadId => {
-        return { downloadId }
-      }).catch(error => {
-        console.log({ ...image, error })
-        notice({ message: `${error?.message}: ${image.filename}` })
-      })
-    }
+    // const tasks = imagesList.map(file => {
+    //   return chrome.downloads.download(file).then(downloadId => {
+    //     return { downloadId }
+    //   }).catch(error => {
+    //     console.log({ ...file, error })
+    //     notice({ message: `${error?.message}: ${file.filename}` })
+    //   })
+    // })
+    
+    // await Promise.all(tasks)
+    const downloadList = [...imagesList];
+    downloadList.forEach(file => {
+      // pool.download(file)
+      //   .then(res => console.log(`文件 ${res.id} 下载完整 √`))
+      //   .catch(err => console.error(`文件下载失败:`, err));
+      
+      // 统一绑定当前的全局取消信号
+      downloadPool.download(
+        file,
+        { priority: 1, signal: globalCancelController.signal }
+      )
+      .then((res) => console.log(`✅ 下载完成: ID ${res.id}`))
+      .catch((err) => console.log(`❌ 任务结束: ${err.message}`))
+      .finally(() => {
+        // 任务完成（成功/失败/取消）后，立刻主动核对一次轮询状态
+        updateProgressTicker();
+      });
+
+      // 只要有新任务被推入，确保轮询处于激活状态
+      startProgressTicker();
+    });
+
+
+    // while (downloadList.length) {
+    //   if (globalSet.size >= 3) {
+    //     await sleep(1500);
+    //     continue
+    //   }
+    //   const image = downloadList.shift()
+    //   await chrome.downloads.download(image).then(downloadId => {
+    //     return { downloadId }
+    //   }).catch(error => {
+    //     console.log({ ...image, error })
+    //     notice({ message: `${error?.message}: ${image.filename}` })
+    //   })
+    // }
+
+    // for (const image of imagesList) {
+    //   await chrome.downloads.download(image).then(downloadId => {
+    //     return { downloadId }
+    //   }).catch(error => {
+    //     console.log({ ...image, error })
+    //     notice({ message: `${error?.message}: ${image.filename}` })
+    //   })
+    // }
+
+    // if (imagesList.length) {
+    //   await sleep(5000)
+    // }
 
   }
 }
@@ -342,5 +410,93 @@ async function setStorage(list = []) {
   for (const item of list) {
     const { tid, title, authorId, author } = item
     await chrome.storage.local.set({ [tid]: { title, authorId, author } })
+  }
+}
+
+// 3. 监听插件图标点击事件
+chrome.action.onClicked.addListener((tab) => {
+  console.log('🛑 插件图标被点击！正在取消所有下载任务...');
+
+  // 触发取消：此时不论是排队中的、还是正在下载的任务，都会收到 abort 信号
+  globalCancelController.abort();
+
+  // 完美闭环：必须重新实例化控制器，确保下一次调用 startBulkDownloads() 时能正常提交任务
+  globalCancelController = new AbortController();
+  
+  console.log('🔄 取消信号已重置，下载池已恢复就绪状态。');
+
+  // 完美闭环：强行掐断轮询
+  stopProgressTicker();
+  
+  // 红色高亮闪烁提示“STOP”
+  chrome.action.setBadgeText({ text: 'STOP' });
+  chrome.action.setBadgeBackgroundColor({ color: '#F44336' });
+
+  // 2.5秒后清空文字
+  setTimeout(() => chrome.action.setBadgeText({ text: '' }), 2500);
+});
+
+/**
+ * 实时计算并刷新多任务合并后的总体进度百分比
+ */
+function updateProgressTicker() {
+  // 如果当前没有任何正在运行的任务，安全关闭轮询，清空徽章
+  if (downloadPool.running === 0) {
+    stopProgressTicker();
+    chrome.action.setBadgeText({ text: '' });
+    return;
+  }
+
+  // 1. 获取当前所有处于控制状态下的真实下载项数据
+  const activeIds = Array.from(downloadPool.pendingResolvers.keys());
+  
+  if (activeIds.length === 0) return;
+
+  // 使用 chrome.downloads.search 批量查询真实网速与字节状态
+  chrome.downloads.search({ id: activeIds }, (items) => {
+    let totalBytes = 0;
+    let bytesReceived = 0;
+    let hasValidSize = false;
+
+    items.forEach((item) => {
+      // 过滤掉已结束、暂停或未初始化的异常项
+      if (item.state === 'in_progress' && item.totalBytes > 0) {
+        totalBytes += item.totalBytes;
+        bytesReceived += item.bytesReceived;
+        hasValidSize = true;
+      }
+    });
+
+    // 2. 计算合并进度百分比
+    if (hasValidSize && totalBytes > 0) {
+      const percentage = Math.floor((bytesReceived / totalBytes) * 100);
+      
+      // 3. 将 0%-100% 格式化并在徽章显示
+      chrome.action.setBadgeText({ text: `${percentage}%` });
+      chrome.action.setBadgeBackgroundColor({ color: '#4CAF50' }); // 进度中显示绿色
+    } else {
+      // 处理无法获取文件总大小（如流式下载 chunked）的边缘情况
+      chrome.action.setBadgeText({ text: '...' });
+      chrome.action.setBadgeBackgroundColor({ color: '#2196F3' });
+    }
+  });
+}
+
+/**
+ * 启动轮询：一旦并发池开始消耗任务，立即开启高频监听
+ */
+function startProgressTicker() {
+  if (progressTickerId) return; // 避免重复创建定时器
+  // 每 500ms 高效轮询一次底层下载字节数据
+  progressTickerId = setInterval(updateProgressTicker, 500);
+}
+
+/**
+ * 关闭轮询：释放系统 CPU 消耗，符合 Service Worker 省电机制
+ */
+function stopProgressTicker() {
+  if (progressTickerId) {
+    clearInterval(progressTickerId);
+    progressTickerId = null;
   }
 }
