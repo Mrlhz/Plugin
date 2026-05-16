@@ -447,35 +447,44 @@ function updateProgressTicker() {
     return;
   }
 
-  // 1. 获取当前所有处于控制状态下的真实下载项数据
-  const activeIds = Array.from(downloadPool.pendingResolvers.keys());
+  // 1. 将当前的下载 ID 数组转换为 Set，以便进行 O(1) 复杂度的快速匹配
+  const activeIdsSet = new Set(downloadPool.pendingResolvers.keys());
   
-  if (activeIds.length === 0) return;
+  if (activeIdsSet.size === 0) return;
 
-  // 使用 chrome.downloads.search 批量查询真实网速与字节状态
-  chrome.downloads.search({ id: activeIds }, (items) => {
+  // 2. 传入空对象 {} 获取浏览器当前所有的下载项，在本地过滤出由我们池子管理的任务
+  chrome.downloads.search({}, (items) => {
+    // 检查运行时是否有其他错误
+    if (chrome.runtime.lastError) {
+      console.log(chrome.runtime.lastError.message);
+      return;
+    }
+
     let totalBytes = 0;
     let bytesReceived = 0;
     let hasValidSize = false;
 
     items.forEach((item) => {
-      // 过滤掉已结束、暂停或未初始化的异常项
-      if (item.state === 'in_progress' && item.totalBytes > 0) {
-        totalBytes += item.totalBytes;
-        bytesReceived += item.bytesReceived;
-        hasValidSize = true;
+      // 通过本地 Set 检查，只统计属于当前并发池内的任务
+      if (activeIdsSet.has(item.id)) {
+        // 过滤出正在下载中且具有有效文件大小的任务
+        if (item.state === 'in_progress' && item.totalBytes > 0) {
+          totalBytes += item.totalBytes;
+          bytesReceived += item.bytesReceived;
+          hasValidSize = true;
+        }
       }
     });
 
-    // 2. 计算合并进度百分比
+    // 3. 计算合并进度百分比
     if (hasValidSize && totalBytes > 0) {
       const percentage = Math.floor((bytesReceived / totalBytes) * 100);
       
-      // 3. 将 0%-100% 格式化并在徽章显示
+      // 完美适配 4 字节极限展示
       chrome.action.setBadgeText({ text: `${percentage}%` });
       chrome.action.setBadgeBackgroundColor({ color: '#4CAF50' }); // 进度中显示绿色
     } else {
-      // 处理无法获取文件总大小（如流式下载 chunked）的边缘情况
+      // 处理无法获取文件总大小（如流式 chunked 下载）的边缘情况
       chrome.action.setBadgeText({ text: '...' });
       chrome.action.setBadgeBackgroundColor({ color: '#2196F3' });
     }
