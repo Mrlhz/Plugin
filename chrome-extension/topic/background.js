@@ -290,9 +290,6 @@ async function downloadFile(files = [], options = {}) {
 }
 
 async function downloadSingleImage(list = [], dir) {
-  
-  // const pool = new ChromeDownloadPool(3); // 限制同时只有 3 个文件在真正写入磁盘
-
   for (let index = 0; index < list.length; index++) {
     const element = list[index];
     const { author, title, topic, blob, images } = element
@@ -305,22 +302,9 @@ async function downloadSingleImage(list = [], dir) {
       return { url: image, filename }
     })
 
-    const imagesList = await pathExists(body)
-    // const tasks = imagesList.map(file => {
-    //   return chrome.downloads.download(file).then(downloadId => {
-    //     return { downloadId }
-    //   }).catch(error => {
-    //     console.log({ ...file, error })
-    //     notice({ message: `${error?.message}: ${file.filename}` })
-    //   })
-    // })
-    
-    // await Promise.all(tasks)
+    const imagesList = await pathExists(body);
     const downloadList = [...imagesList];
     downloadList.forEach(file => {
-      // pool.download(file)
-      //   .then(res => console.log(`文件 ${res.id} 下载完整 √`))
-      //   .catch(err => console.error(`文件下载失败:`, err));
       
       // 统一绑定当前的全局取消信号
       downloadPool.download(
@@ -337,35 +321,6 @@ async function downloadSingleImage(list = [], dir) {
       // 只要有新任务被推入，确保轮询处于激活状态
       startProgressTicker();
     });
-
-
-    // while (downloadList.length) {
-    //   if (globalSet.size >= 3) {
-    //     await sleep(1500);
-    //     continue
-    //   }
-    //   const image = downloadList.shift()
-    //   await chrome.downloads.download(image).then(downloadId => {
-    //     return { downloadId }
-    //   }).catch(error => {
-    //     console.log({ ...image, error })
-    //     notice({ message: `${error?.message}: ${image.filename}` })
-    //   })
-    // }
-
-    // for (const image of imagesList) {
-    //   await chrome.downloads.download(image).then(downloadId => {
-    //     return { downloadId }
-    //   }).catch(error => {
-    //     console.log({ ...image, error })
-    //     notice({ message: `${error?.message}: ${image.filename}` })
-    //   })
-    // }
-
-    // if (imagesList.length) {
-    //   await sleep(5000)
-    // }
-
   }
 }
 
