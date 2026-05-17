@@ -17,9 +17,11 @@ export class ChromeDownloadPool extends PromisePool {
         this._cleanup(delta.id, abortCleanup);
         resolve({ id: delta.id, status: 'complete' });
       } 
-      else if (delta.error?.current) {
+      // 增强防御：显式捕获用户手动取消或其他中断错误
+      else if (delta.state?.current === 'interrupted' || delta.error?.current) {
+        const errorMsg = delta.error?.current || 'Download interrupted or canceled by user';
         this._cleanup(delta.id, abortCleanup);
-        reject(new Error(`Download ${delta.id} failed: ${delta.error.current}`));
+        reject(new Error(`Download ${delta.id} failed: ${errorMsg}`));
       }
     });
   }
@@ -37,7 +39,7 @@ export class ChromeDownloadPool extends PromisePool {
     // 接收 PromisePool 传进来的运行期 innerSignal
     return this.run(async (innerSignal) => {
       return new Promise((resolve, reject) => {
-        
+
         // 运行前检查
         if (innerSignal?.aborted) {
           return reject(new Error('Download Aborted by User'));

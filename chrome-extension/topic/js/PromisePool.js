@@ -28,7 +28,9 @@ class PriorityQueue {
   _bubbleUp(index) {
     while (index > 0) {
       let parentIndex = (index - 1) >> 1;
-      if (this.heap[index].priority <= this.heap[parentIndex].priority) break;
+      if (this.heap[index].priority <= this.heap[parentIndex].priority) {
+        break;
+      }
       [this.heap[index], this.heap[parentIndex]] = [this.heap[parentIndex], this.heap[index]];
       index = parentIndex;
     }
@@ -40,10 +42,16 @@ class PriorityQueue {
       let right = (index << 1) + 2;
       let highest = index;
 
-      if (left < this.size() && this.heap[left].priority > this.heap[highest].priority) highest = left;
-      if (right < this.size() && this.heap[right].priority > this.heap[highest].priority) highest = right;
-      
-      if (highest === index) break;
+      if (left < this.size() && this.heap[left].priority > this.heap[highest].priority) {
+        highest = left;
+      }
+      if (right < this.size() && this.heap[right].priority > this.heap[highest].priority) {
+        highest = right;
+      }
+
+      if (highest === index) {
+        break;
+      }
       [this.heap[index], this.heap[highest]] = [this.heap[highest], this.heap[index]];
       index = highest;
     }
@@ -65,7 +73,7 @@ export class PromisePool {
 
     // 2. 创建内部联动控制器：它既能响应排队取消，也能响应运行中取消
     const internalController = new AbortController();
-    
+
     // 如果外部传入了 signal，使内部控制器与之联动
     const onExternalAbort = () => internalController.abort();
     if (signal) {
@@ -73,26 +81,34 @@ export class PromisePool {
     }
 
     if (this.running >= this.max) {
+      let onQueueAbort = null;
       try {
         await new Promise((resolve, reject) => {
           // 封装排队节点
           const queueNode = { resolve, reject, priority, signal };
           this.queue.push(queueNode);
 
-          // 核心：处理排队期间的取消
-          internalController.signal.addEventListener('abort', () => {
-            // 从堆中移除该节点（可以通过给节点打标记延迟删除，或重构堆的删除）
+          // 修复点 2：提取解耦的取消监听器，以便后续精准移除
+          onQueueAbort = () => {
             queueNode.isAborted = true; 
             reject(new Error('Task Aborted by User'));
-          });
+          };
+          internalController.signal.addEventListener('abort', onQueueAbort);
         });
+      } catch (error) {
+        // 修复点 1：排队期间任务取消，必须触发 _next() 唤醒其余替补任务，防止死锁
+        this._next();
+        throw error;
       } finally {
+        if (onQueueAbort) {
+          internalController.signal.removeEventListener('abort', onQueueAbort);
+        }
         // 清理排队联动监听
         if (signal) signal.removeEventListener('abort', onExternalAbort);
       }
     }
 
-    // 再次确认：防止在排队等待结束到开始执行的间隙被取消
+    // 双重检查防线
     if (internalController.signal.aborted) {
       this._next();
       throw new Error('Task Aborted by User');
@@ -106,6 +122,7 @@ export class PromisePool {
     } finally {
       this.running--;
       if (signal) signal.removeEventListener('abort', onExternalAbort);
+      // 正常执行完毕或抛出异常，腾出空位，调度下一发
       this._next();
     }
   }
@@ -118,7 +135,7 @@ export class PromisePool {
       // 如果该任务在排队期间没有被取消，则激活它
       if (!node.isAborted) {
         node.resolve();
-        break;
+        break; // 成功激活一个有效任务，退出循环
       }
     }
   }
