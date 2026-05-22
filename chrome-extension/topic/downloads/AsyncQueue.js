@@ -7,93 +7,99 @@ class AsyncQueue {
   }
 
   /**
-   * 添加异步任务到队列中
-   * @param {Function} task - 返回 Promise 的异步任务函数
-   * @param {Object} options - 配置项
-   * @param {number} options.priority - 优先级，数字越大越先执行 (默认为 0)
-   * @param {number} options.timeout - 超时时间，单位毫秒 (可选)
-   * @returns {Promise} 返回一个包装后的 Promise
+   * 添加任务到队列
+   * @param {Function} task 返回 Promise 的异步函数
+   * @param {Object} options 配置项 { priority, timeout }
+   * @returns {Promise} 返回任务最终结果的 Promise
    */
   push(task, options = {}) {
-    const { priority = 0, timeout = null } = options;
+    const { priority = 0, timeout = 0 } = options;
 
     return new Promise((resolve, reject) => {
-      // 将任务及其实际控制权限包装后入队
-      this.queue.push({
+      // 包装任务，附带优先级和超时控制
+      const item = {
         task,
         priority,
         timeout,
         resolve,
         reject
-      });
+      };
 
       // 按照优先级从大到小排序 (若优先级相同，则保持原相对顺序即 FIFO)
       this.queue.sort((a, b) => b.priority - a.priority);
 
-      // 尝试触发队列执行
+      // 尝试触发调度
       this._next();
     });
   }
 
-  // 内部调度方法
+  /**
+   * 核心调度器
+   */
   _next() {
-    // 状态拦截：若暂停、并发数满、或队列为空，则不继续执行
+    // 如果队列已暂停，或者当前并发数达到上限，或者队列已空，则停止调度
     if (this.isPaused || this.activeCount >= this.concurrency || this.queue.length === 0) {
       return;
     }
 
     this.activeCount++;
-    // 从队列头部取出优先级最高的任务
     const { task, timeout, resolve, reject } = this.queue.shift();
 
-    // 构造带超时控制的执行体
-    let taskPromise = Promise.resolve().then(() => task());
+    // 构造任务执行的主 Promise
+    const taskPromise = Promise.resolve().then(() => task());
 
-    if (timeout !== null && timeout > 0) {
-      let timer;
-      const timeoutPromise = new Promise((_, rejectTimeout) => {
-        timer = setTimeout(() => {
-          rejectTimeout(new Error(`Task timed out after ${timeout}ms`));
-        }, timeout);
-      });
+    // 判断是否开启超时控制
+    const finalPromise = timeout > 0 
+      ? Promise.race([taskPromise, this._createTimeout(timeout)])
+      : taskPromise;
 
-      // 使用 Promise.race 竞争竞赛，超时则触发熔断
-      taskPromise = Promise.race([
-        taskPromise.then((res) => {
-          clearTimeout(timer); // 任务提前完成，清除定时器
-          return res;
-        }),
-        timeoutPromise
-      ]);
-    }
-
-    // 执行任务并处理后续流转
-    taskPromise
+    finalPromise
       .then(resolve)
       .catch(reject)
       .finally(() => {
         this.activeCount--;
-        this._next(); // 释放并发位，递归触发下一个任务
+        this._next(); // 执行下一个
       });
 
-    // 只要并发通道未满，继续尝试提取下一个任务同步执行
+    // 循环触发，直到填满并发池
     this._next();
   }
 
-  // 暂停队列 (不会中断已经开始执行的任务，但会拦截未执行的任务)
+  /**
+   * 创建超时定时器
+   */
+  _createTimeout(ms) {
+    return new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(`Task timeout after ${ms}ms`));
+      }, ms);
+    });
+  }
+
+  /**
+   * 暂停队列（无法影响已经在执行中的任务）
+   */
   pause() {
     this.isPaused = true;
   }
 
-  // 恢复队列
+  /**
+   * 恢复队列
+   */
   resume() {
     if (!this.isPaused) return;
     this.isPaused = false;
     this._next();
   }
 
-  // 清空等待队列
+  /**
+   * 清空未执行的任务
+   */
   clear() {
+    const clearQueue = this.queue;
     this.queue = [];
+    clearQueue.forEach(({ reject }) => {
+      reject('Aborted by User')
+    });
   }
 }
