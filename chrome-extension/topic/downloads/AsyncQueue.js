@@ -54,7 +54,6 @@ export class AsyncQueue {
 
     this.activeCount++;
     const { task, timeout, resolve, reject } = this.queue.shift();
-    this._notify(); 
 
     const controller = new AbortController();
     const { signal } = controller;
@@ -62,6 +61,7 @@ export class AsyncQueue {
 
     const taskContext = { signal, controller, onQueuePause: () => {}, onQueueResume: () => {} };
     this.activeTasks.set(currentTaskId, taskContext);
+    this._notify();
 
     let timer = null;
     let isSettled = false;
@@ -90,6 +90,9 @@ export class AsyncQueue {
         if (timer) clearTimeout(timer);
         signal.removeEventListener('abort', abortHandler);
 
+        taskContext.onQueuePause = null;
+        taskContext.onQueueResume = null;
+
         if (!this.activeTasks.has(currentTaskId)) {
           // 不扣减计数，不触发_next()干扰新队列
           return;
@@ -104,6 +107,8 @@ export class AsyncQueue {
     if (timeout > 0) {
       timer = setTimeout(() => {
         if (isSettled) return;
+        signal.removeEventListener('abort', abortHandler);
+        safeReject(new Error(`Task rejected: Timeout after ${timeout}ms`));
         controller.abort();
       }, timeout);
     }
