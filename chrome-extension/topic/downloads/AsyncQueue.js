@@ -20,7 +20,7 @@ export class AsyncQueue {
     this.onStatusChange({
       activeCount: this.activeCount,
       waitingCount: this.queue.length,
-      totalCount: this.queue.length + this.activeCount || this.totalCount,
+      totalCount: this.totalCount,
       isPaused: this.isPaused
     });
   }
@@ -47,73 +47,71 @@ export class AsyncQueue {
    * 核心调度器
    */
   _next() {
-    // 如果队列已暂停，或者当前并发数达到上限，或者队列已空，则停止调度
-    if (this.isPaused || this.activeCount >= this.concurrency || this.queue.length === 0) {
-      return;
-    }
+    // ✨ 只有在未暂停且有空闲并发位时才执行任务
+    while (!this.isPaused && this.activeCount < this.concurrency && this.queue.length > 0) {
+      this.activeCount++;
+      const { task, timeout, resolve, reject } = this.queue.shift();
 
-    this.activeCount++;
-    const { task, timeout, resolve, reject } = this.queue.shift();
+      const controller = new AbortController();
+      const { signal } = controller;
+      const currentTaskId = ++this._taskIdCounter;
 
-    const controller = new AbortController();
-    const { signal } = controller;
-    const currentTaskId = ++this._taskIdCounter;
+      const taskContext = { signal, controller, onQueuePause: () => {}, onQueueResume: () => {} };
+      this.activeTasks.set(currentTaskId, taskContext);
+      this._notify();
 
-    const taskContext = { signal, controller, onQueuePause: () => {}, onQueueResume: () => {} };
-    this.activeTasks.set(currentTaskId, taskContext);
-    this._notify();
+      let timer = null;
+      let isSettled = false;
 
-    let timer = null;
-    let isSettled = false;
-
-    const safeResolve = (value) => {
-      if (isSettled) return;
-      isSettled = true;
-      if (timer) clearTimeout(timer);
-      resolve(value);
-    };
-    const safeReject = (err) => {
-      if (isSettled) return;
-      isSettled = true;
-      if (timer) clearTimeout(timer);
-      reject(err);
-    };
-
-    const abortHandler = () => { safeReject(new Error('Task was cancelled by user')) }
-    signal.addEventListener('abort', abortHandler);
-
-    Promise.resolve()
-      .then(() => task(taskContext))
-      .then(safeResolve)
-      .catch(safeReject)
-      .finally(() => {
-        if (timer) clearTimeout(timer);
-        signal.removeEventListener('abort', abortHandler);
-
-        taskContext.onQueuePause = null;
-        taskContext.onQueueResume = null;
-
-        if (!this.activeTasks.has(currentTaskId)) {
-          // 不扣减计数，不触发_next()干扰新队列
-          return;
-        }
-
-        this.activeTasks.delete(currentTaskId);
-        this.activeCount = Math.max(0, this.activeCount - 1);
-        this._notify();
-        this._next();
-      });
-
-    if (timeout > 0) {
-      timer = setTimeout(() => {
+      const safeResolve = (value) => {
         if (isSettled) return;
-        signal.removeEventListener('abort', abortHandler);
-        safeReject(new Error(`Task rejected: Timeout after ${timeout}ms`));
-        controller.abort();
-      }, timeout);
-    }
+        isSettled = true;
+        if (timer) clearTimeout(timer);
+        resolve(value);
+      };
+      const safeReject = (err) => {
+        if (isSettled) return;
+        isSettled = true;
+        if (timer) clearTimeout(timer);
+        reject(err);
+      };
 
-    this._next();
+      const abortHandler = () => { safeReject(new Error('Task was cancelled by user')) };
+      signal.addEventListener('abort', abortHandler);
+
+      Promise.resolve()
+        .then(() => task(taskContext))
+        .then(safeResolve)
+        .catch(safeReject)
+        .finally(() => {
+          if (timer) clearTimeout(timer);
+          signal.removeEventListener('abort', abortHandler);
+
+          taskContext.onQueuePause = null;
+          taskContext.onQueueResume = null;
+
+          // ✨ 如果当前任务不在映射表中（说明是被 cancelAll 强杀的）
+          // 我们直接跳过计数器的扣减，因为 cancelAll 已经整体重置了计数器，不要重复扣减。
+          if (!this.activeTasks.has(currentTaskId)) {
+            return;
+          }
+
+          this.activeTasks.delete(currentTaskId);
+          this.activeCount = Math.max(0, this.activeCount - 1);
+          this._notify();
+          this._next(); // 驱动下一个任务
+        });
+
+      // 超时熔断控制
+      if (timeout > 0) {
+        timer = setTimeout(() => {
+          if (isSettled) return;
+          signal.removeEventListener('abort', abortHandler);
+          safeReject(new Error(`Task rejected: Timeout after ${timeout}ms`));
+          controller.abort();
+        }, timeout);
+      }
+    }
   }
 
   cancelAll() {
