@@ -1,38 +1,48 @@
-class AsyncQueue {
-  constructor(concurrency = 1) {
+export class AsyncQueue {
+  constructor(concurrency = 1, options = {}) {
     this.concurrency = concurrency; // 最大并发数
     this.queue = [];                // 任务队列
     this.activeCount = 0;           // 当前正在执行的任务数
     this.isPaused = false;          // 暂停状态标识
+    this.activeTasks = new Map();
+    this.onStatusChange = options.onStatusChange || (() => {});
+    this._taskIdCounter = 0;
   }
 
   /**
-   * 添加任务到队列
-   * @param {Function} task 返回 Promise 的异步函数
-   * @param {Object} options 配置项 { priority, timeout }
-   * @returns {Promise} 返回任务最终结果的 Promise
+   * 获取当前队列总数（排队中 + 正在执行）
    */
-  push(task, options = {}) {
-    const { priority = 0, timeout = 0 } = options;
+  get totalCount() {
+    return this.queue.length + this.activeTasks.size;
+  }
 
-    return new Promise((resolve, reject) => {
-      // 包装任务，附带优先级和超时控制
-      const item = {
-        task,
-        priority,
-        timeout,
-        resolve,
-        reject
-      };
-
-      // 按照优先级从大到小排序 (若优先级相同，则保持原相对顺序即 FIFO)
-      this.queue.sort((a, b) => b.priority - a.priority);
-
-      // 尝试触发调度
-      this._next();
+  _notify() {
+    this.onStatusChange({
+      activeCount: this.activeCount,
+      waitingCount: this.queue.length,
+      totalCount: this.queue.length + this.activeCount || this.totalCount,
+      isPaused: this.isPaused
     });
   }
 
+  push(task, options = {}) { // 💡 确保这里叫 push
+    const { priority = 0, timeout = 0 } = options;
+    return new Promise((resolve, reject) => {
+      const item = { task, priority, timeout, resolve, reject };
+      
+      let low = 0;
+      let high = this.queue.length;
+      while (low < high) {
+        const mid = (low + high) >> 1;
+        if (this.queue[mid].priority >= priority) low = mid + 1;
+        else high = mid;
+      }
+      this.queue.splice(low, 0, item);
+
+      this._notify();
+      this._next();
+    });
+  }
   /**
    * 核心调度器
    */
@@ -44,62 +54,103 @@ class AsyncQueue {
 
     this.activeCount++;
     const { task, timeout, resolve, reject } = this.queue.shift();
+    this._notify(); 
 
-    // 构造任务执行的主 Promise
-    const taskPromise = Promise.resolve().then(() => task());
+    const controller = new AbortController();
+    const { signal } = controller;
+    const currentTaskId = ++this._taskIdCounter;
 
-    // 判断是否开启超时控制
-    const finalPromise = timeout > 0 
-      ? Promise.race([taskPromise, this._createTimeout(timeout)])
-      : taskPromise;
+    const taskContext = { signal, controller, onQueuePause: () => {}, onQueueResume: () => {} };
+    this.activeTasks.set(currentTaskId, taskContext);
 
-    finalPromise
-      .then(resolve)
-      .catch(reject)
+    let timer = null;
+    let isSettled = false;
+
+    const safeResolve = (value) => {
+      if (isSettled) return;
+      isSettled = true;
+      if (timer) clearTimeout(timer);
+      resolve(value);
+    };
+    const safeReject = (err) => {
+      if (isSettled) return;
+      isSettled = true;
+      if (timer) clearTimeout(timer);
+      reject(err);
+    };
+
+    const abortHandler = () => { safeReject(new Error('Task was cancelled by user')) }
+    signal.addEventListener('abort', abortHandler);
+
+    Promise.resolve()
+      .then(() => task(taskContext))
+      .then(safeResolve)
+      .catch(safeReject)
       .finally(() => {
-        this.activeCount--;
-        this._next(); // 执行下一个
+        if (timer) clearTimeout(timer);
+        signal.removeEventListener('abort', abortHandler);
+
+        if (!this.activeTasks.has(currentTaskId)) {
+          // 不扣减计数，不触发_next()干扰新队列
+          return;
+        }
+
+        this.activeTasks.delete(currentTaskId);
+        this.activeCount = Math.max(0, this.activeCount - 1);
+        this._notify();
+        this._next();
       });
 
-    // 循环触发，直到填满并发池
+    if (timeout > 0) {
+      timer = setTimeout(() => {
+        if (isSettled) return;
+        controller.abort();
+      }, timeout);
+    }
+
     this._next();
   }
 
-  /**
-   * 创建超时定时器
-   */
-  _createTimeout(ms) {
-    return new Promise((_, reject) => {
-      setTimeout(() => {
-        reject(new Error(`Task timeout after ${ms}ms`));
-      }, ms);
+  cancelAll() {
+    // 1. 清空并拒绝所有排队任务
+    while (this.queue.length > 0) {
+      const { reject } = this.queue.shift();
+      reject(new Error('Queue cleared: Task cancelled before running'));
+    }
+
+    // 2. 强杀所有运行中的 Chrome 下载
+    this.activeTasks.forEach(taskContext => {
+      try {
+        taskContext.controller.abort();
+      } catch (e) {}
     });
-  }
 
-  /**
-   * 暂停队列（无法影响已经在执行中的任务）
-   */
-  pause() {
-    this.isPaused = true;
-  }
+    // 3. 强制重置核心计数器，确保并发池干净
+    this.activeTasks.clear();
+    this.activeCount = 0;
 
-  /**
-   * 恢复队列
-   */
-  resume() {
-    if (!this.isPaused) return;
-    this.isPaused = false;
-    this._next();
-  }
-
-  /**
-   * 清空未执行的任务
-   */
-  clear() {
-    const clearQueue = this.queue;
-    this.queue = [];
-    clearQueue.forEach(({ reject }) => {
-      reject('Aborted by User')
+    // 4. 同步UI状态
+    this.onStatusChange({
+      activeCount: 0,
+      waitingCount: 0,
+      totalCount: 0,
+      isPaused: this.isPaused
     });
+    
+    console.log('🛑 队列已安全清空，并发计数器重置');
+  }
+
+  pause() { 
+    this.isPaused = true; 
+    this.activeTasks.forEach(t => t.onQueuePause());
+    this._notify(); 
+  }
+  
+  resume() { 
+    if (!this.isPaused) return; 
+    this.isPaused = false; 
+    this.activeTasks.forEach(t => t.onQueueResume());
+    this._notify(); 
+    this._next(); 
   }
 }

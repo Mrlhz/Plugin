@@ -3,10 +3,38 @@
  * @param {Object} options - chrome.downloads.download 的配置项
  * @returns {Function} 契合 AsyncQueue 的任务函数
  */
-const createDownloadTask = (options) => {
-  return (signal) => {
+export const createDownloadTask = (options) => {
+  return (context) => {
+    const { signal } = context;
     return new Promise((resolve, reject) => {
       let activeDownloadId = null;
+      // 队列暂停信号
+      context.onQueuePause = () => {
+        if (activeDownloadId !== null) {
+          // 调用 Chrome 原生暂停（注意：服务器必须支持断点续传，否则该 API 会失效或报错）
+          chrome.downloads.pause(activeDownloadId, () => {
+            if (chrome.runtime.lastError) {
+              console.warn(`[暂停失败] ID: ${activeDownloadId}, 原因:`, chrome.runtime.lastError.message);
+            } else {
+              console.log(`[💾 Chrome 下载已暂停] ID: ${activeDownloadId}`);
+            }
+          });
+        }
+      };
+
+      // 队列恢复信号
+      context.onQueueResume = () => {
+        if (activeDownloadId !== null) {
+          // 调用 Chrome 原生恢复下载
+          chrome.downloads.resume(activeDownloadId, () => {
+            if (chrome.runtime.lastError) {
+              console.warn(`[恢复失败] ID: ${activeDownloadId}, 原因:`, chrome.runtime.lastError.message);
+            } else {
+              console.log(`[⚡ Chrome 下载已恢复] ID: ${activeDownloadId}`);
+            }
+          });
+        }
+      };
 
       // 1. 监听下载状态变更的内部回调
       const statusListener = (delta) => {
