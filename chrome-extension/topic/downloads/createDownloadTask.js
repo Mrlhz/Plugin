@@ -8,6 +8,7 @@ export const createDownloadTask = (options) => {
     const { signal } = context;
     return new Promise((resolve, reject) => {
       let activeDownloadId = null;
+      let activeDownloadOptions = null;
       // 队列暂停信号
       context.onQueuePause = () => {
         if (activeDownloadId !== null) {
@@ -43,7 +44,7 @@ export const createDownloadTask = (options) => {
         // 下载成功
         if (delta.state?.current === 'complete') {
           cleanup();
-          resolve({ downloadId: activeDownloadId, status: 'complete' });
+          resolve({ downloadId: activeDownloadId, status: 'complete', options: activeDownloadOptions });
         }
 
         // 下载失败或被用户手动取消
@@ -93,6 +94,7 @@ export const createDownloadTask = (options) => {
 
         // 记录当前的下载 ID，用于后续的中止操作
         activeDownloadId = downloadId;
+        activeDownloadOptions = options;
       });
     });
   };

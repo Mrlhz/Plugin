@@ -5,13 +5,34 @@ import { pathExists, notice } from './js/pathExists.js'
 import { setClass } from './js/searchpost.js';
 import { outputSearchpost } from './js/space.js';
 import { getVideoSource, downloadVideo, downloadVideos } from './js/video.js';
-import { ChromeDownloadPool } from './js/ChromeDownloadPool.js';
+import { AsyncQueue } from './downloads/AsyncQueue.js';
+import { createDownloadTask } from './downloads/createDownloadTask.js';
 
-// 1. 初始化下载池：限制最大同时下载数为 2
-const downloadPool = new ChromeDownloadPool(2);
+// 用于辅助判断一键取消状态的变量
+let lastTotalCount = 0;
+let lastIsCancelled = false;
 
-// 2. 维护一个全局可变的取消控制器
-let globalCancelController = new AbortController();
+// 1. 初始化下载池：限制最大同时下载数为 5
+const downloadQueue = new AsyncQueue(5, {
+  onStatusChange: (status) => {
+    const { totalCount, isPaused } = status;
+
+    // 当一键取消导致数量清空时的特殊动画反馈
+    if (totalCount === 0 && lastTotalCount > 0 && lastIsCancelled) {
+      chrome.action.setBadgeText({ text: '🛑' });
+      chrome.action.setBadgeBackgroundColor({ color: '#EA4335' });
+      setTimeout(() => chrome.action.setBadgeText({ text: '' }), 2000);
+      lastIsCancelled = false;
+      lastTotalCount = 0;
+      return;
+    }
+
+    lastTotalCount = totalCount;
+
+    // 2. 根据当前状态更新徽章显示
+    updateBadge(status);
+  }
+});
 
 const TOPIC_KEY = 'topic'
 const TOPIC = 'TOPIC'
@@ -223,7 +244,9 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
   }
 
   if (cmd === OFFSCREEN_TO_BACKGROUND__SINGLE) {
-    await downloadFile([
+    await Promise.all([
+      downloadSingleImage(result, outputPath),
+      downloadFile([
       // {
       //   list: result,
       //   dir: outputPath,
@@ -231,15 +254,15 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
       //   ext: '.md',
       //   blobKey: 'blob'
       // },
-      {
-        list: result,
-        dir: outputPath,
-        dirKey: 'author',
-        ext: '.html',
-        blobKey: 'htmlBlob'
-      }
-    ], options);
-    await downloadSingleImage(result, outputPath);
+        {
+          list: result,
+          dir: outputPath,
+          dirKey: 'author',
+          ext: '.html',
+          blobKey: 'htmlBlob'
+        }
+      ], options)
+    ]);
   }
 
   sendResponse({ message: '我是后台，已收到你的消息：', request })
@@ -273,17 +296,10 @@ async function downloadFile(files = [], options = {}) {
   const exists = filterAlreadyExists(result, filesList)
   await setStorage(exists)
 
-  const tasks = filesList.map(({ url, filename }) => {
-    return chrome.downloads.download({ url, filename }).then(downloadId => {
-      return { downloadId }
-    }).catch(error => {
-      console.log({ url, filename, error })
-      notice({ message: `${error?.message}: ${filename}` })
-    })
-  })
-  const res = await Promise.all(tasks)
-  await setStorage(filesList)
-  return res
+  const downloadTasks = startBulkDownload(filesList);
+  await Promise.all(downloadTasks);
+  await setStorage(filesList);
+  return { success: true };
 }
 
 // startBulkDownloads
@@ -301,21 +317,8 @@ async function downloadSingleImage(list = [], dir) {
     })
 
     const imagesList = await pathExists(body);
-    const downloadList = [...imagesList];
-    downloadList.forEach(file => {
-      
-      // 统一绑定当前的全局取消信号
-      downloadPool.download(file, { priority: 1, signal: globalCancelController.signal })
-      .then((res) => console.log(`✅ 下载完成: ID ${res.id}`))
-      .catch((err) => console.log(`❌ 任务结束: ${err.message}`))
-      .finally(() => {
-        // 任务完成（成功/失败/取消）后，只要任务生命周期结束，就触发一次徽章刷新
-        updateBadge();
-      });
-
-      // 每次循环推入新任务时刷新计数器
-      updateBadge();
-    });
+    const downloadTasks = startBulkDownload(imagesList);
+    await Promise.all(downloadTasks);
   }
 }
 
@@ -366,44 +369,42 @@ async function setStorage(list = []) {
 // 3. 监听插件图标点击事件
 chrome.action.onClicked.addListener((tab) => {
   console.log('🛑 插件图标被点击！正在取消所有下载任务...');
-
-  // 触发取消：此时不论是排队中的、还是正在下载的任务，都会收到 abort 信号
-  globalCancelController.abort();
-
-  // 完美闭环：必须重新实例化控制器，确保下一次调用 startBulkDownloads() 时能正常提交任务
-  globalCancelController = new AbortController();
+  lastIsCancelled = true; // 标记这是用户主动点击取消的
   
-  console.log('🔄 取消信号已重置，下载池已恢复就绪状态。');
-  
-  // 红色高亮闪烁提示“STOP”
-  chrome.action.setBadgeText({ text: 'STOP' });
-  chrome.action.setBadgeBackgroundColor({ color: '#F44336' });
-
-  // 3秒后清空文字
-  setTimeout(() => chrome.action.setBadgeText({ text: '' }), 3000);
+  // 核心：直接调用。内部的 onStatusChange 会完美接管“🛑”的闪烁动画
+  downloadQueue.cancelAll();
 });
 
 /**
  * 状态更新与徽章渲染函数
  */
-function updateBadge(statusText) {
-  if (statusText) {
-    // 显式指定状态（如“已取消”）
-    chrome.action.setBadgeText({ text: statusText });
-    chrome.action.setBadgeBackgroundColor({ color: '#F44336' }); // 红色
-    
-    // 3秒后自动清除“已取消”字样
-    setTimeout(() => chrome.action.setBadgeText({ text: '' }), 3000);
-    return;
-  }
+function updateBadge(status) {
+  const { totalCount, isPaused } = status;
 
-  // 动态计算剩余任务总数 = 正在下载数 + 队列排队数
-  const totalRemaining = downloadPool.running + downloadPool.queue.size();
-
-  if (totalRemaining > 0) {
-    chrome.action.setBadgeText({ text: totalRemaining.toString() });
-    chrome.action.setBadgeBackgroundColor({ color: '#2196F3' }); // 剩余任务数显示蓝色
+  if (totalCount > 0) {
+    chrome.action.setBadgeText({ text: String(totalCount) });
+    // 如果处于暂停状态，显示灰色；正在运行则显示蓝色
+    const color = isPaused ? '#9AA0A6' : '#4285F4';
+    chrome.action.setBadgeBackgroundColor({ color });
   } else {
-    chrome.action.setBadgeText({ text: '' }); // 任务全部清空
+    chrome.action.setBadgeText({ text: '' });
   }
+
+}
+
+function startBulkDownload(files) {
+  return files.map((file, index) => {
+    const priority = file.url?.endsWith('.gif') ? 0 : 5;
+    
+    // 💡
+    return downloadQueue.push(
+      createDownloadTask({ url: file.url, filename: file.filename }),
+      { priority: priority }
+    )
+    .then(res => {
+      console.log(`✅ 下载完成: ID ${res.downloadId} - ${res.options?.filename}`);
+      return res;
+    })
+    .catch(err => console.warn(`❌ 任务结束或被取消: ${err.message} - ${file.filename}`));
+  });
 }
