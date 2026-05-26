@@ -11,9 +11,10 @@ import { createDownloadTask } from './downloads/createDownloadTask.js';
 // 用于辅助判断一键取消状态的变量
 let lastTotalCount = 0;
 let lastIsCancelled = false;
+let concurrency = 5; // 默认并发数
 
-// 1. 初始化下载池：限制最大同时下载数为 5
-const downloadQueue = new AsyncQueue(5, {
+// 1. 初始化下载池：限制最大同时下载数，并提供全局控制接口
+const downloadQueue = new AsyncQueue(concurrency, {
   onStatusChange: (status) => {
     const { totalCount, isPaused } = status;
 
@@ -131,7 +132,15 @@ chrome.contextMenus.onClicked.addListener(async function (info, tab) {
 
 
 chrome.commands.onCommand.addListener(async (command) => {
-  console.log(`Command "${command}" triggered`)
+  console.log(`Command "${command}" triggered`);
+  const localSetting = await chrome.storage.local.get('__settings__');
+  const settings = localSetting['__settings__'] || {};
+
+  if (settings.concurrency) {
+    downloadQueue.setConcurrency(settings.concurrency);
+    console.log(`⚙️ 已更新下载并发数为: ${settings.concurrency}`);
+  }
+
   if (command === 'RUN_TOPIC_SINGLE') {
     const tab = await getCurrentTab()
     const { pathname } = new URL(tab.url)

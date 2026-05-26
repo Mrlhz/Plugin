@@ -66,13 +66,13 @@ export class AsyncQueue {
       const safeResolve = (value) => {
         if (isSettled) return;
         isSettled = true;
-        if (timer) clearTimeout(timer);
+        if (timer) { clearTimeout(timer); timer = null; }
         resolve(value);
       };
       const safeReject = (err) => {
         if (isSettled) return;
         isSettled = true;
-        if (timer) clearTimeout(timer);
+        if (timer) { clearTimeout(timer); timer = null; }
         reject(err);
       };
 
@@ -84,7 +84,7 @@ export class AsyncQueue {
         .then(safeResolve)
         .catch(safeReject)
         .finally(() => {
-          if (timer) clearTimeout(timer);
+          if (timer) { clearTimeout(timer); timer = null; }
           signal.removeEventListener('abort', abortHandler);
 
           taskContext.onQueuePause = null;
@@ -133,12 +133,7 @@ export class AsyncQueue {
     this.activeCount = 0;
 
     // 4. 同步UI状态
-    this.onStatusChange({
-      activeCount: 0,
-      waitingCount: 0,
-      totalCount: 0,
-      isPaused: this.isPaused
-    });
+    this._notify();
     
     console.log('🛑 队列已安全清空，并发计数器重置');
   }
@@ -155,5 +150,18 @@ export class AsyncQueue {
     this.activeTasks.forEach(t => t.onQueueResume());
     this._notify(); 
     this._next(); 
+  }
+
+  setConcurrency(newConcurrency) {
+    if (typeof newConcurrency !== 'number' || newConcurrency <= 0) {
+       console.warn('Concurrency must be a positive integer');
+      return;
+    }
+    if (newConcurrency === this.concurrency) return; // 无变化
+    if (!this.isPaused) {
+      this.concurrency = newConcurrency;
+      this._notify();
+      this._next(); // 调整并发数后尝试执行更多任务
+    }
   }
 }
