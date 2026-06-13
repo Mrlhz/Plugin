@@ -108,7 +108,27 @@ chrome.downloads.onChanged.addListener(async (downloadDelta) => {
   if (downloadDelta?.state?.current === 'complete' || downloadDelta?.error) {
     globalSet.delete(downloadDelta.id)
   }
-})
+});
+
+// 【初始化】从存储中读取并应用设置
+chrome.storage.local.get('__settings__').then((localSetting) => {
+  const settings = localSetting['__settings__'] || {};
+  if (settings.concurrency) {
+    downloadQueue.setConcurrency(settings.concurrency);
+    console.log(`⚙️ 已更新下载并发数为: ${settings.concurrency}`);
+  }
+});
+
+// 【实时监听】在控制台 await chrome.storage.local.set 修改时，立即动态生效
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === 'local' && changes.__settings__) {
+    const newSettings = changes.__settings__.newValue || {};
+    if (newSettings.concurrency) {
+      downloadQueue.setConcurrency(newSettings.concurrency);
+      console.log(`⚡ 实时检测到设置变更，并发数调整为: ${newSettings.concurrency}`);
+    }
+  }
+});
 
 chrome.contextMenus.onClicked.addListener(async function (info, tab) {
   console.log(info, tab)
