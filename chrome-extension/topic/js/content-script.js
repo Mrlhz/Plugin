@@ -7,7 +7,7 @@ function injectCustomScript(jsPath) {
   script.onload = function () {
     this.parentNode.removeChild(this)
   };
-  (document.head || document.documentElement).appendChild(script);
+  (document.head || document.documentElement)?.appendChild(script);
 }
 
 injectCustomScript('js/inject-script.js')
@@ -17,7 +17,14 @@ window.addEventListener('message', async function (e) {
 }, false)
 
 document.addEventListener('click', async function() {
-  await setClass()
+  Promise.try(setClass)
+    .then(res => {
+      console.log(res)
+    })
+    .catch(error => {
+      console.log('插件更新，需要刷新页面，Error:', error)
+    })
+  // await setClass()
 }, false)
 
 async function setClass() {
@@ -35,6 +42,8 @@ async function setClass() {
       link.classList.add('downloaded')
     }
   }
+
+  return { status: 'complete', message: '链接标记完成' }
 }
 
 function parseQuery(search = '') {
@@ -56,8 +65,11 @@ const scrollToBottom = (element) => element.scrollIntoView({ behavior: 'smooth',
 // document.querySelector('body').scrollIntoView({ behavior: 'smooth', block: 'start' })
 
 const backtopHtml = `
-  <i class="el-icon el-backtop__icon">
+  <i class="el-icon el-backtop__icon top">
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><path fill="currentColor" d="M512 320 192 704h639.936z"></path></svg>
+  </i>
+  <i class="el-icon el-backtop__icon bottom">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><path fill="currentColor" d="m192 384 320 384 320-384z"></path></svg>
   </i>
 `
 
@@ -68,8 +80,15 @@ if (!document.getElementById('el_backtop')) {
   backtop.className = 'el-backtop'
   // backtop.style= 'right: 20px; bottom: 20px;'
   document.body.appendChild(backtop);
-  backtop.addEventListener('click', function(el) {
-    console.log(el.target?.getBoundingClientRect())
+  // backtop.addEventListener('click', function(el) {
+  //   console.log(el.target?.getBoundingClientRect(), el.target)
+  //   scrollToTop(document.body)
+  // }, false);
+
+  document.querySelector('#el_backtop .top').addEventListener('click', function(el) {
     scrollToTop(document.body)
-  }, false)
+  }, false);
+  document.querySelector('#el_backtop .bottom').addEventListener('click', function(el) {
+    scrollToBottom(document.body)
+  }, false);
 }
