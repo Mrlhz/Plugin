@@ -3,7 +3,7 @@ window.MyExtension = window.MyExtension || {};
 (function() {
 
   // 纯粹的检测函数：如果当前页被锁，只管记录到存储中
-  window.MyExtension.checkAndApplyLocked = async function() {
+  window.MyExtension.checkLocked = async function() {
     const params = new URLSearchParams(window.location.search);
     const currentTid = params.get('tid');
     

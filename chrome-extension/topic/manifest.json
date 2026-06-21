@@ -12,7 +12,13 @@
     "css": [
       "css/topic.css"
     ],
-    "js" : ["js/content/setClass.js", "js/content/backtop.js", "js/content-script.js"],
+    "js" : [
+      "js/content/setClass.js",
+      "js/content/backtop.js",
+      "js/content/locked.js",
+      "js/content/unauthorized.js",
+      "js/content-script.js"
+    ],
     "matches": [
       "*://localhost/*",
       "*://*/*",

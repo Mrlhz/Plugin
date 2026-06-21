@@ -23,12 +23,19 @@ function injectCustomScript(jsPath) {
   }
 
   // 核心功能安全执行器
-  function safeExecuteSetClass() {
+  function safeExecuteAllMarkers() {
     // 安全检查，防止模块未加载成功
     if (!window.MyExtension || !window.MyExtension.setClass) return;
 
     Promise.resolve()
-      .then(() => window.MyExtension.setClass())
+      .then(async () => {
+        // 锁帖状态检查
+        await window.MyExtension?.checkLocked();
+        // 无权限状态检查
+        await window.MyExtension?.checkUnauthorized();
+        // 状态标记与样式渲染
+        await window.MyExtension?.setClass();
+      })
       .then(res => {
         if (res && res.status === 'complete') {
           console.log('标记成功:', res.message);
@@ -46,7 +53,7 @@ function injectCustomScript(jsPath) {
       observer.disconnect();
       console.log('已自动注销 DOM 监听器。');
     }
-    document.removeEventListener('click', safeExecuteSetClass, false);
+    document.removeEventListener('click', safeExecuteAllMarkers, false);
 
     // 弹出柔和的全局提示
     if (!document.getElementById('ext-update-tip')) {
@@ -70,13 +77,13 @@ function injectCustomScript(jsPath) {
     }
 
     // 2. 首次进入页面执行链接标记
-    safeExecuteSetClass();
+    safeExecuteAllMarkers();
 
     // 3. 全局点击事件联动
-    document.addEventListener('click', safeExecuteSetClass, false);
+    document.addEventListener('click', safeExecuteAllMarkers, false);
 
     // 4. 动态 DOM 监听（使用防抖优化性能）
-    const debouncedExecute = debounce(safeExecuteSetClass, 150);
+    const debouncedExecute = debounce(safeExecuteAllMarkers, 150);
     observer = new MutationObserver((mutations) => {
       const hasNewNodes = mutations.some(m => m.addedNodes.length > 0);
       if (hasNewNodes) {
