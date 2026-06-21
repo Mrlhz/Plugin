@@ -7,18 +7,27 @@
     "service_worker": "background.js",
     "type": "module"
   },
-  "content_scripts": [{
+  "content_scripts": [
+    {
     "css": [
       "css/topic.css"
     ],
-    "js" : ["js/content-script.js"],
+    "js" : ["js/content/setClass.js", "js/content/backtop.js", "js/content-script.js"],
     "matches": [
       "*://localhost/*",
       "*://*/*",
       "<all_urls>"
     ]
-  }],
+    }
+  ],
   "commands": {
+    "ALT_1": {
+      "suggested_key": {
+        "default": "Alt+1",
+        "mac": "Alt+1"
+      },
+      "description": "download all tabs video"      
+    },
     "RUN_TOPIC_SINGLE": {
       "suggested_key": {
         "default": "Alt+S",
@@ -39,14 +48,6 @@
         "mac": "Alt+A"
       },
       "description": "Run \"run topic app page\" on the current page."
-    },
-    "_execute_action": {
-      "suggested_key": {
-        "windows": "Alt+S",
-        "mac": "Alt+S",
-        "chromeos": "Alt+S",
-        "linux": "Alt+S"
-      }
     }
   },
   "web_accessible_resources": [{
@@ -65,7 +66,9 @@
     "notifications"
   ],
   "host_permissions": [
-    "*://*/*"
+    "*://*/*",
+    "http://*/*",
+    "https://*/*"
   ],
   "icons": {
     "16": "images/topic48.png",
@@ -78,7 +81,6 @@
       "24": "images/topic48.png",
       "32": "images/topic48.png"
     },
-    "default_title": "Extension",
-    "default_popup": "popup.html"
+    "default_title": "Extension"
   }
 }
