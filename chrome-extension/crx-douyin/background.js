@@ -161,33 +161,38 @@ function cleanString(str, invalidReplaceWith = '_', dotReplaceWith = '') {
  * 📥 批量下载入口：完美融入 AsyncQueue、本地磁盘深度扫描
  */
 async function downloadMediaBatch(items) {
-  let skipCount = 0;
-  let pushCount = 0;
+  let rawTasks = []; // 临时存放本次操作拆解出的全量任务
+  let skippedByRegistryAndChrome = 0;
 
+  // ==========================================
+  // 步骤一：解析出所有文件的相对路径，并执行前两层轻量校验
+  // ==========================================
   for (const item of items) {
     let safeNickname = cleanString(item.author?.nickname) || '未知作者';
     let safeDesc = cleanString(item.desc) || item.aweme_id;
     const basePath = `Douyin_Grab/${safeNickname}/`;
 
-    // 1. 处理视频类型
     if (item.type === 'video') {
       const videoUrl = item.downloadUrl || item.playUrl;
       if (!videoUrl) continue;
 
       const filename = `${basePath}${safeDesc}_${item.aweme_id}.mp4`;
 
-      // 👑 调用升级后的三层深度校验
-      const status = await checkDownloadStatus(filename, item);
-      if (status) {
-        console.log(`[去重拦截] 视频命中保护, 状态: ${status}, 路径: ${filename}`);
-        skipCount++;
+      // 【第一层防线】：内存正在下载去重
+      if (downloadRegistry.get(filename) === 'downloading') {
+        skippedByRegistryAndChrome++;
+        continue;
+      }
+      // 【第二层防线】：Chrome 运行时历史记录去重
+      const isChromeExist = await new Promise(r => chrome.downloads.search({ filename, state: 'complete', exists: true }, res => r(res?.length > 0)));
+      if (isChromeExist) {
+        skippedByRegistryAndChrome++;
         continue;
       }
 
-      pushTaskWithRetry({ url: videoUrl, filename, conflictAction: 'overwrite' }, 1);
-      pushCount++;
+      // 通过前两层，视为待检测的候选任务
+      rawTasks.push({ url: videoUrl, filename, conflictAction: 'overwrite', priority: 1 });
 
-    // 2. 处理图文类型
     } else if (item.type === 'note' && item.images?.length > 0) {
       for (let index = 0; index < item.images.length; index++) {
         const img = item.images[index];
@@ -195,20 +200,47 @@ async function downloadMediaBatch(items) {
 
         const filename = `${basePath}${safeDesc}_图文_${item.aweme_id}/image_${index + 1}.webp`;
 
-        const status = await checkDownloadStatus(filename, item);
-        if (status) {
-          console.log(`[去重拦截] 图片命中保护, 跳过: ${filename}`);
-          skipCount++;
+        if (downloadRegistry.get(filename) === 'downloading') {
+          skippedByRegistryAndChrome++;
+          continue;
+        }
+        const isChromeExist = await new Promise(r => chrome.downloads.search({ filename, state: 'complete', exists: true }, res => r(res?.length > 0)));
+        if (isChromeExist) {
+          skippedByRegistryAndChrome++;
           continue;
         }
 
-        pushTaskWithRetry({ url: img.url, filename, conflictAction: 'uniquify' }, 0);
-        pushCount++;
+        rawTasks.push({ url: img.url, filename, conflictAction: 'uniquify', priority: 0 });
       }
     }
   }
 
-  return { skipped: skipCount, pushed: pushCount };
+  // ==========================================
+  // 步骤二：👑 一键打包送往 Node.js 服务端进行批量硬核校验
+  // ==========================================
+  const totalRawCount = rawTasks.length;
+  // 过滤出真正要在硬盘上建立下载的任务
+  const finalTasksToDownload = await filterExistingFilesByServer(rawTasks);
+  
+  // 计算在硬盘层被过滤掉的数量
+  const skippedByServer = totalRawCount - finalTasksToDownload.length;
+  const totalSkipped = skippedByRegistryAndChrome + skippedByServer;
+
+  // ==========================================
+  // 步骤三：将经过三层严格筛选后的干净任务，灌入 AsyncQueue 消费
+  // ==========================================
+  finalTasksToDownload.forEach(task => {
+    pushTaskWithRetry(
+      { url: task.url, filename: task.filename, conflictAction: task.conflictAction },
+      task.priority
+    );
+  });
+
+  // 返回给前端 content.js 用于气泡弹窗统计
+  return { 
+    skipped: totalSkipped, 
+    pushed: finalTasksToDownload.length 
+  };
 }
 
 /**
@@ -271,40 +303,127 @@ async function checkDownloadStatus(filename, itemRaw) {
 }
 
 /**
- * 🛟 升级版：带状态注册的异步队列压入函数
+ * 🛟 终极防护版：带状态锁与临门一脚校验的异步队列压入函数
  */
 function pushTaskWithRetry(downloadOptions, currentPriority = 1, attempt = 1) {
   const { filename } = downloadOptions;
 
-  // 1. 锁定状态：将其登记为“正在下载中”
+  // 【第一道关卡：入库前拦截】
+  // 如果当前内存里已经在下载或排队这个文件了，直接物理蒸发，绝不重复入队
+  if (downloadRegistry.get(filename) === 'downloading') {
+    console.log(`[🚀 连击拦截] 任务正在排队或下载中，拒绝重复入队: ${filename}`);
+    return;
+  }
+
+  // 登记锁定状态：表示该文件已被占位
   downloadRegistry.set(filename, 'downloading');
 
-  const taskFn = createDownloadTask(downloadOptions);
-  
+  // 包装契合 AsyncQueue 的任务函数
+  const taskFn = (context) => {
+    // 💡 核心改动：在 createDownloadTask 的外层嵌套一层“临门一脚”校验
+    return new Promise(async (resolve, reject) => {
+      
+      // 【第二道关卡：出库触发前终审】
+      // 任务在队列中排队完毕，准备发起网络请求的这一瞬间，再次检索本地硬盘
+      // 防止在排队期间，上一个相同的下载任务刚刚好下载完成
+      const isFileExistOnDisk = await new Promise((r) => {
+        chrome.downloads.search({ filename, state: 'complete', exists: true }, (res) => {
+          r(res && res.length > 0);
+        });
+      });
+
+      if (isFileExistOnDisk) {
+        console.log(`[🎯 临门拦截] 排队期间该文件已被前序任务下载完成，取消本次重复请求: ${filename}`);
+        // 释放内存锁
+        downloadRegistry.delete(filename);
+        // 优雅宣告任务完成（让队列继续走下一个，不抛错触发重试）
+        return resolve({ status: 'skipped_at_last_moment', filename });
+      }
+
+      // 通过终审，真正调用你之前写的支持 AbortSignal 的标准 Chrome 下载任务
+      const realDownloadRunner = createDownloadTask(downloadOptions);
+      
+      realDownloadRunner(context)
+        .then(resolve)
+        .catch(reject);
+    });
+  };
+
+  // 将带终审的任务压入工业级 AsyncQueue 队列中
   downloadQueue.push(taskFn, { timeout: 60000, priority: currentPriority })
-    .then(() => {
-      console.log(`[Registry] 任务成功落地: ${filename}`);
-      // 下载成功后，可以保持或者清除，因为后续直接查磁盘即可
+    .then((result) => {
+      // 如果是被临门拦截跳过的，不需要打印落地日志
+      if (result?.status === 'skipped_at_last_moment') return;
+
+      console.log(`[Registry] 任务成功安全落地: ${filename}`);
+      // 下载成功后解开内存锁，后续完全交给实体硬盘和 Chrome 历史去重
       downloadRegistry.delete(filename); 
     })
     .catch(err => {
       const errMsg = err.message || '';
       
-      // 如果是被用户手动强杀或者取消的，解除锁定，允许未来重新点下载
+      // 如果是被用户手动🛑强杀或取消的，直接解除锁定，允许未来重新触发
       if (errMsg.includes('cancelled') || errMsg.includes('AbortSignal')) {
         downloadRegistry.delete(filename);
         return;
       }
 
-      // 异常网络重试逻辑
+      // 异常断网容错重试机制
       if (attempt < 3) {
+        // 5秒后重试时，由于重试前会再次进入 pushTaskWithRetry，
+        // 我们在重试前先删掉锁，确保重试任务能够顺利重新入队
+        downloadRegistry.delete(filename);
         setTimeout(() => {
           pushTaskWithRetry(downloadOptions, 0, attempt + 1);
         }, 5000);
       } else {
-        // 彻底失败，解除锁定，允许以后重试
+        // 彻底失败，解除锁定
         downloadRegistry.delete(filename);
-        console.error(`[Registry] 任务彻底失败，已释放锁: ${filename}`);
+        console.error(`[Registry] 任务重试耗尽，已释放锁: ${filename}`);
       }
     });
+}
+
+
+/**
+ * ⚡ 核心：将文件列表发给 server.js 进行一次性实体硬盘批量校验
+ * @param {Array} taskList - 构建好的待下载任务数组
+ * @returns {Promise<Array>} - 返回经过硬盘去重后，真正需要下载的任务数组
+ */
+async function filterExistingFilesByServer(taskList) {
+  if (taskList.length === 0) return [];
+
+  try {
+    // 1. 组装契合你 server.js 规范的批量 Payload 数组
+    const payload = taskList.map(task => ({
+      filename: task.filename,
+      downloadsLocation: [
+        "D:\\Douyin_Downloads",           // 👈 你的实体硬盘归档根目录
+        "C:\\Users\\Administrator\\Downloads"     // 系统默认下载目录
+      ],
+      exts: [".mp4", ".webp", ".jpeg", ".jpg"]
+    }));
+
+    // 2. 仅发起【一次】HTTP 请求，打包送检
+    const response = await fetch(SERVER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (response.ok) {
+      const serverRes = await response.json();
+      // 你的 server.js 逻辑：result 返回的是所有“不存在（即需要下载）”的项
+      // 我们通过 filename 将其映射回我们插件内部的 task 对象
+      const missingFilenames = new Set((serverRes.result || []).map(r => r.filename));
+      
+      // 过滤出硬盘里没有的任务
+      return taskList.filter(task => missingFilenames.has(task.filename));
+    }
+  } catch (err) {
+    console.warn('[Server Link] 本地检测服务未启动，自动跳过硬盘批量校验，全量转入下载。');
+  }
+
+  // 如果服务端挂了，降级处理：全量返回不拦截
+  return taskList;
 }
