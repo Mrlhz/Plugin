@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "抖音媒体数据助手",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "基于原生拦截与 IndexedDB 的抖音视频与图文无水印下载工具",
   "permissions": [
     "storage",

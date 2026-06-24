@@ -43,9 +43,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // 接收悬浮窗发来的批量下载指令
   if (message.action === 'DOWNLOAD_MEDIA_BATCH') {
-    downloadMediaBatch(message.items);
-    sendResponse({ success: true });
-    return;
+    downloadMediaBatch(message.items).then((result) => {
+      sendResponse({ 
+        success: true, 
+        total: message.items.length, 
+        skipped: result.skipped, 
+        pushed: result.pushed 
+      });
+    });
+    return true; // 保持异步通信通道开启
   }
 
   // ⏸️ 响应暂停指令
@@ -236,6 +242,8 @@ async function downloadMediaBatch(items) {
     );
   });
 
+  console.log(`[🎉 去重完成] 自动过滤了 ${totalSkipped} 个重复文件。`);
+
   // 返回给前端 content.js 用于气泡弹窗统计
   return { 
     skipped: totalSkipped, 
@@ -398,7 +406,7 @@ async function filterExistingFilesByServer(taskList) {
     const payload = taskList.map(task => ({
       filename: task.filename,
       downloadsLocation: [
-        "D:\\Douyin_Downloads",           // 👈 你的实体硬盘归档根目录
+        "D:\\Douyin_Downloads",                   // 👈 你的实体硬盘归档根目录
         "C:\\Users\\Administrator\\Downloads"     // 系统默认下载目录
       ],
       exts: [".mp4", ".webp", ".jpeg", ".jpg"]
