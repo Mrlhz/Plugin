@@ -2,6 +2,12 @@
 import Dexie from './dexie.mjs';
 import { AsyncQueue, createDownloadTask } from './AsyncQueue/index.js';
 
+// ==========================================
+// 🛡️ 状态追踪表与 Server.js 联动引擎
+// ==========================================
+const downloadRegistry = new Map(); // 存储格式：Map<filename, 'downloading'>
+const SERVER_URL = 'http://localhost:8080/pathExists';
+
 // 1. 全局初始化工业级下载队列（设置并发为 3）
 const downloadQueue = new AsyncQueue(3, {
   onStatusChange: (status) => {
@@ -152,48 +158,153 @@ function cleanString(str, invalidReplaceWith = '_', dotReplaceWith = '') {
 
 
 /**
- * 📥 批量下载入口：完美融入 AsyncQueue
+ * 📥 批量下载入口：完美融入 AsyncQueue、本地磁盘深度扫描
  */
-function downloadMediaBatch(items) {
-  items.forEach((item) => {
-    let safeNickname = cleanString(item.author?.nickname, '_', '_') || '未知作者';
-    let safeDesc = cleanString(item.desc, '_', '_') || item.aweme_id;
+async function downloadMediaBatch(items) {
+  let skipCount = 0;
+  let pushCount = 0;
+
+  for (const item of items) {
+    let safeNickname = cleanString(item.author?.nickname) || '未知作者';
+    let safeDesc = cleanString(item.desc) || item.aweme_id;
     const basePath = `Douyin_Grab/${safeNickname}/`;
 
-    // 1. 提取视频下载任务
+    // 1. 处理视频类型
     if (item.type === 'video') {
       const videoUrl = item.downloadUrl || item.playUrl;
-      if (!videoUrl) return;
+      if (!videoUrl) continue;
 
-      const downloadOptions = {
-        url: videoUrl,
-        filename: `${basePath}${safeDesc}_${item.aweme_id}.mp4`,
-        conflictAction: 'overwrite'
-      };
+      const filename = `${basePath}${safeDesc}_${item.aweme_id}.mp4`;
 
-      // 👑 核心：生成契合异步队列的任务函数，并塞入队列（设置 60 秒超时熔断）
-      const taskFn = createDownloadTask(downloadOptions);
-      downloadQueue.push(taskFn, { timeout: 60000, priority: 1 })
-        .then(() => console.log(`[Queue] 视频 ${item.aweme_id} 下载成功`))
-        .catch(err => console.error(`[Queue] 视频 ${item.aweme_id} 失败或被中止:`, err.message));
+      // 👑 调用升级后的三层深度校验
+      const status = await checkDownloadStatus(filename, item);
+      if (status) {
+        console.log(`[去重拦截] 视频命中保护, 状态: ${status}, 路径: ${filename}`);
+        skipCount++;
+        continue;
+      }
 
-    // 2. 提取图文/笔记下载任务
+      pushTaskWithRetry({ url: videoUrl, filename, conflictAction: 'overwrite' }, 1);
+      pushCount++;
+
+    // 2. 处理图文类型
     } else if (item.type === 'note' && item.images?.length > 0) {
-      item.images.forEach((img, index) => {
-        if (!img.url) return;
-        
-        const downloadOptions = {
-          url: img.url,
-          filename: `${basePath}${safeDesc}_图文_${item.aweme_id}/image_${index + 1}.webp`,
-          conflictAction: 'uniquify'
-        };
+      for (let index = 0; index < item.images.length; index++) {
+        const img = item.images[index];
+        if (!img.url) continue;
 
-        // 👑 同理塞入队列
-        const taskFn = createDownloadTask(downloadOptions);
-        downloadQueue.push(taskFn, { timeout: 30000, priority: 0 }) // 图文文件小，设置 30 秒超时
-          .then(() => console.log(`[Queue] 图文 ${item.aweme_id} 第 ${index + 1} 张下载成功`))
-          .catch(err => console.error(`[Queue] 图文 ${item.aweme_id} 第 ${index + 1} 张失败:`, err.message));
-      });
+        const filename = `${basePath}${safeDesc}_图文_${item.aweme_id}/image_${index + 1}.webp`;
+
+        const status = await checkDownloadStatus(filename, item);
+        if (status) {
+          console.log(`[去重拦截] 图片命中保护, 跳过: ${filename}`);
+          skipCount++;
+          continue;
+        }
+
+        pushTaskWithRetry({ url: img.url, filename, conflictAction: 'uniquify' }, 0);
+        pushCount++;
+      }
     }
+  }
+
+  return { skipped: skipCount, pushed: pushCount };
+}
+
+/**
+ * 🔍 工业级三层去重检查函数（加入 Node.js 离线实体硬盘检测）
+ * @param {string} filename - 预落地的文件名相对路径
+ * @param {Object} itemRaw - 原始的媒体项数据（用于传递给服务端）
+ * @returns {Promise<string|null>} - 返回 'downloading' | 'completed' | 'server_exists' | null
+ */
+async function checkDownloadStatus(filename, itemRaw) {
+  // 【第一层防线】：检查内存队列，判断是否正在下载中
+  if (downloadRegistry.get(filename) === 'downloading') {
+    return 'downloading';
+  }
+
+  // 【第二层防线】：检查 Chrome 原生下载记录（判断当前浏览器内该文件是否完好）
+  const chromeCheck = await new Promise((resolve) => {
+    chrome.downloads.search({ filename, state: 'complete', exists: true }, (res) => {
+      resolve(res && res.length > 0 ? 'completed' : null);
+    });
   });
+  if (chromeCheck) return chromeCheck;
+
+  // 【第三层防线】：👑 联动调用你的 Node.js 服务检测实体硬盘
+  // 即使你重装了浏览器或清理了下载历史，只要硬盘里的文件还在，就能防重！
+  try {
+    const safeNickname = cleanString(itemRaw.author?.nickname, '_', '_') || '未知作者';
+    const safeDesc = cleanString(itemRaw.desc, '_', '_') || itemRaw.aweme_id;
+
+    // 拼装出契合你 server.js 的请求 Payload 格式
+    const payload = [{
+      filename: filename, // 传入相对路径
+      downloadsLocation: [
+        "D:\\Douyin_Downloads", // 👈 填写本地电脑上实际用来归档的绝对路径根目录
+        "C:\\Users\\Administrator\\Downloads" // 或者是系统默认下载目录
+      ],
+      exts: [".mp4", ".webp", ".jpeg", ".jpg"] // 允许兼容检测的后缀
+    }];
+
+    // 异步发出 POST 请求
+    const response = await fetch(SERVER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (response.ok) {
+      const serverRes = await response.json();
+      // 你的 server.js 逻辑：返回所有“不存在”的项。
+      // 所以如果返回的 result 数组长度为 0，说明请求的项在硬盘里【已存在】
+      if (serverRes.result && serverRes.result.length === 0) {
+        return 'server_exists'; 
+      }
+    }
+  } catch (err) {
+    // 即使本地 Node 服务没启动，也顺延通过，保证插件降级后基本下载功能依然可用
+    console.warn('[Server Link] 本地检测服务未启动或连接失败，自动跳过硬盘层校验。');
+  }
+
+  return null;
+}
+
+/**
+ * 🛟 升级版：带状态注册的异步队列压入函数
+ */
+function pushTaskWithRetry(downloadOptions, currentPriority = 1, attempt = 1) {
+  const { filename } = downloadOptions;
+
+  // 1. 锁定状态：将其登记为“正在下载中”
+  downloadRegistry.set(filename, 'downloading');
+
+  const taskFn = createDownloadTask(downloadOptions);
+  
+  downloadQueue.push(taskFn, { timeout: 60000, priority: currentPriority })
+    .then(() => {
+      console.log(`[Registry] 任务成功落地: ${filename}`);
+      // 下载成功后，可以保持或者清除，因为后续直接查磁盘即可
+      downloadRegistry.delete(filename); 
+    })
+    .catch(err => {
+      const errMsg = err.message || '';
+      
+      // 如果是被用户手动强杀或者取消的，解除锁定，允许未来重新点下载
+      if (errMsg.includes('cancelled') || errMsg.includes('AbortSignal')) {
+        downloadRegistry.delete(filename);
+        return;
+      }
+
+      // 异常网络重试逻辑
+      if (attempt < 3) {
+        setTimeout(() => {
+          pushTaskWithRetry(downloadOptions, 0, attempt + 1);
+        }, 5000);
+      } else {
+        // 彻底失败，解除锁定，允许以后重试
+        downloadRegistry.delete(filename);
+        console.error(`[Registry] 任务彻底失败，已释放锁: ${filename}`);
+      }
+    });
 }
