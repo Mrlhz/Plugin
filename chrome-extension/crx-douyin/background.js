@@ -121,17 +121,33 @@ function showActionBadge(tabId, text, color) {
 // 4. 原生分类目录并发下载层
 // ==========================================
 /**
- * 🧹 工业级文件名/路径强力清洗函数（彻底根治 Windows 路径末尾点号及空格报错）
+ * 🧹 工业级可配置路径清洗函数
+ * @param {string} str - 待清洗的原始文本（如作者昵称、视频文案）
+ * @param {string} [invalidReplaceWith='_'] - 可选：系统违禁符的替换符号，默认 '_'
+ * @param {string} [dotReplaceWith=''] - 可选：末尾点号替换符，默认 '' (直接剔除)
  */
-function cleanString(str) {
+function cleanString(str, invalidReplaceWith = '_', dotReplaceWith = '') {
   if (!str) return '';
-  return str
-    .replace(/[\r\n\t]/g, ' ')               // 1. 换行/制表符变空格
-    .replace(/[\\/:*?"<>|]/g, '_')           // 2. 抹除系统路径违禁符 \ / : * ? " < > |
-    .replace(/^\s+|\s+$/g, '')               // 3. 去除全局首尾空格（防止尾部空格引发歧义）
-    .replace(/\.+$/g, '')                    // 4. 使用正则强行剔除字符串【最末尾】的所有点号
-    .replace(/^\s+|\s+$/g, '')               // 5. 再次收尾，确保剥离点号后暴露出的新尾部也没有空格
-    .substring(0, 30);                       // 6. 截取前30个字符，防止超长报错
+
+  // 1. 创建动态的违禁符正则
+  const invalidRegex = /[\\/:*?"<>|]/g;
+  
+  // 2. 创建匹配【最末尾所有点号】的正则
+  const trailingDotRegex = /\.+$/g;
+
+  let result = str
+    .replace(/[\r\n\t]/g, ' ')                           // 换行/制表符变空格
+    .replace(invalidRegex, invalidReplaceWith)           // 替换系统路径违禁符
+    .replace(/^\s+|\s+$/g, '');                          // 首尾去空格
+
+  // 3. 核心：根据配置处理末尾点号
+  result = result.replace(trailingDotRegex, dotReplaceWith);
+
+  // 4. 再次收尾去空格，防止剥离或替换点号后暴露出的新尾部带有空格
+  result = result.replace(/^\s+|\s+$/g, '');
+
+  // 5. 截取前30个字符，防止超长报错
+  return result.substring(0, 30);
 }
 
 
@@ -140,8 +156,8 @@ function cleanString(str) {
  */
 function downloadMediaBatch(items) {
   items.forEach((item) => {
-    let safeNickname = cleanString(item.author?.nickname) || '未知作者';
-    let safeDesc = cleanString(item.desc) || item.aweme_id;
+    let safeNickname = cleanString(item.author?.nickname, '_', '_') || '未知作者';
+    let safeDesc = cleanString(item.desc, '_', '_') || item.aweme_id;
     const basePath = `Douyin_Grab/${safeNickname}/`;
 
     // 1. 提取视频下载任务
