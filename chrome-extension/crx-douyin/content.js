@@ -15,31 +15,65 @@ try {
 // ==========================================
 // 2. 局部变量与悬浮窗 UI 构建
 // ==========================================
-let grabbedPool = []; // 本次打开页面新抓取到的去重数据池
+
+let grabbedPool = []; // 本次页面生命周期内捕获的数据池
+let isQueuePaused = false; // 本地记录的队列暂停状态
 
 function injectFloatingWidget() {
-  if (document.getElementById('dy-batch-download-widget')) return;
+  if (document.getElementById('dy-control-panel-widget')) return;
 
-  const widget = document.createElement('div');
-  widget.id = 'dy-batch-download-widget';
-  widget.style.cssText = `
+  // 1. 创建总控制台外壳
+  const panel = document.createElement('div');
+  panel.id = 'dy-control-panel-widget';
+  panel.style.cssText = `
     position: fixed; bottom: 120px; right: 40px; z-index: 2147483647;
-    background: #161823; color: #fff; border: 1px solid rgba(255,255,255,0.15);
-    padding: 12px 22px; border-radius: 30px; cursor: pointer;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.3); font-weight: bold; font-size: 14px;
-    display: flex; align-items: center; gap: 8px; user-select: none; transition: all 0.2s ease;
+    display: flex; align-items: center; gap: 8px; background: #161823;
+    padding: 8px 14px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.15);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4); user-select: none; font-family: sans-serif;
   `;
-  widget.innerHTML = `📥 一键打包批量下载 (<span id="dy-widget-count" style="color:#face15;">0</span>)`;
 
-  widget.addEventListener('mouseenter', () => widget.style.transform = 'translateY(-2px)');
-  widget.addEventListener('mouseleave', () => widget.style.transform = 'translateY(0)');
+  // 2. 内部按钮 HTML 结构（批量下载主按钮 + 状态切换按钮 + 强杀清空按钮）
+  panel.innerHTML = `
+    <!-- 主按钮：触发下载 -->
+    <div id="dy-btn-download" style="color: #fff; padding: 6px 14px; border-radius: 20px; background: linear-gradient(135deg, #fee140 0%, #fa709a 100%); font-weight: bold; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: transform 0.1s;">
+      📥 下载当前页 (<span id="dy-widget-count">0</span>)
+    </div>
+    
+    <!-- 垂直分割线 -->
+    <div style="width: 1px; height: 16px; background: rgba(255,255,255,0.2);"></div>
 
-  widget.addEventListener('click', () => {
+    <!-- 辅助按钮：暂停/继续 -->
+    <div id="dy-btn-pause" title="暂停/恢复下载队列" style="color: #fff; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; cursor: pointer; transition: background 0.2s;">
+      ⏸️
+    </div>
+
+    <!-- 辅助按钮：一键清空强杀 -->
+    <div id="dy-btn-cancel" title="强杀当前下载并清空排队" style="color: #fff; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; cursor: pointer; transition: background 0.2s;">
+      🛑
+    </div>
+  `;
+
+  document.body.appendChild(panel);
+
+  // 3. 获取各节点并绑定精致的交互动效与通信
+  const btnDownload = document.getElementById('dy-btn-download');
+  const btnPause = document.getElementById('dy-btn-pause');
+  const btnCancel = document.getElementById('dy-btn-cancel');
+
+  // 悬停动效显式微调
+  [btnPause, btnCancel].forEach(b => {
+    b.addEventListener('mouseenter', () => b.style.backgroundColor = 'rgba(255,255,255,0.15)');
+    b.addEventListener('mouseleave', () => b.style.backgroundColor = '');
+  });
+  btnDownload.addEventListener('mouseenter', () => btnDownload.style.transform = 'scale(1.03)');
+  btnDownload.addEventListener('mouseleave', () => btnDownload.style.transform = 'scale(1)');
+
+  // 核心功能 A：一键打包批量下载
+  btnDownload.addEventListener('click', () => {
     if (grabbedPool.length === 0) {
-      alert('当前可下载队列为空，请向下滚动网页加载更多作品！');
+      alert('📌 当前可下载队列为空，请向下滚动网页加载更多作品！');
       return;
     }
-    // 发送给 Background 执行静默批量下载
     chrome.runtime.sendMessage({
       action: 'DOWNLOAD_MEDIA_BATCH',
       items: grabbedPool
@@ -51,7 +85,35 @@ function injectFloatingWidget() {
     });
   });
 
-  document.body.appendChild(widget);
+  // 核心功能 B：暂停 / 恢复切换
+  btnPause.addEventListener('click', () => {
+    isQueuePaused = !isQueuePaused;
+    const targetAction = isQueuePaused ? 'QUEUE_PAUSE' : 'QUEUE_RESUME';
+    
+    chrome.runtime.sendMessage({ action: targetAction }, (response) => {
+      if (response?.success) {
+        // 根据状态动态更新网页图标，给用户明确反馈
+        btnPause.innerHTML = isQueuePaused ? '▶️' : '⏸️';
+        btnPause.title = isQueuePaused ? '恢复下载队列' : '暂停下载队列';
+        btnDownload.style.opacity = isQueuePaused ? '0.6' : '1';
+      }
+    });
+  });
+
+  // 核心功能 C：一键强杀全部取消
+  btnCancel.addEventListener('click', () => {
+    if (confirm('⚠️ 确定要强杀当前所有正在下载的任务，并清空所有排队吗？')) {
+      chrome.runtime.sendMessage({ action: 'QUEUE_CANCEL_ALL' }, (response) => {
+        if (response?.success) {
+          // 状态重置
+          isQueuePaused = false;
+          btnPause.innerHTML = '⏸️';
+          btnDownload.style.opacity = '1';
+          alert('🛑 队列已被安全强杀清空，并发计数器已复位！');
+        }
+      });
+    }
+  });
 }
 
 // 页面加载完成后注入按钮
