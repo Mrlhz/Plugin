@@ -1,6 +1,8 @@
 // import Dexie from './dexie.min.js';
+// import Dexie from 'https://unpkg.com/dexie/dist/modern/dexie.mjs';
 import Dexie from './dexie.mjs';
 import { AsyncQueue, createDownloadTask } from './AsyncQueue/index.js';
+import { downloadsLocation, exts } from './globalConfig.js';
 
 // ==========================================
 // 🛡️ 状态追踪表与 Server.js 联动引擎
@@ -271,20 +273,19 @@ async function checkDownloadStatus(filename, itemRaw) {
   });
   if (chromeCheck) return chromeCheck;
 
-  // 【第三层防线】：👑 联动调用你的 Node.js 服务检测实体硬盘
-  // 即使你重装了浏览器或清理了下载历史，只要硬盘里的文件还在，就能防重！
+  // 【第三层防线】：👑 联动调用Node.js 服务检测实体硬盘
+  // 即使重装了浏览器或清理了下载历史，只要硬盘里的文件还在，就能防重！
   try {
     const safeNickname = cleanString(itemRaw.author?.nickname, '_', '_') || '未知作者';
     const safeDesc = cleanString(itemRaw.desc, '_', '_') || itemRaw.aweme_id;
 
-    // 拼装出契合你 server.js 的请求 Payload 格式
+    // 拼装出契合 server.js 的请求 Payload 格式
     const payload = [{
       filename: filename, // 传入相对路径
       downloadsLocation: [
-        "D:\\Douyin_Downloads", // 👈 填写本地电脑上实际用来归档的绝对路径根目录
-        "C:\\Users\\Administrator\\Downloads" // 或者是系统默认下载目录
+        ...downloadsLocation
       ],
-      exts: [".mp4", ".webp", ".jpeg", ".jpg"] // 允许兼容检测的后缀
+      exts: [...exts]
     }];
 
     // 异步发出 POST 请求
@@ -296,7 +297,7 @@ async function checkDownloadStatus(filename, itemRaw) {
 
     if (response.ok) {
       const serverRes = await response.json();
-      // 你的 server.js 逻辑：返回所有“不存在”的项。
+      // server.js 逻辑：返回所有“不存在”的项。
       // 所以如果返回的 result 数组长度为 0，说明请求的项在硬盘里【已存在】
       if (serverRes.result && serverRes.result.length === 0) {
         return 'server_exists'; 
@@ -348,7 +349,7 @@ function pushTaskWithRetry(downloadOptions, currentPriority = 1, attempt = 1) {
         return resolve({ status: 'skipped_at_last_moment', filename });
       }
 
-      // 通过终审，真正调用你之前写的支持 AbortSignal 的标准 Chrome 下载任务
+      // 通过终审，真正调用之前写的支持 AbortSignal 的标准 Chrome 下载任务
       const realDownloadRunner = createDownloadTask(downloadOptions);
       
       realDownloadRunner(context)
@@ -402,14 +403,13 @@ async function filterExistingFilesByServer(taskList) {
   if (taskList.length === 0) return [];
 
   try {
-    // 1. 组装契合你 server.js 规范的批量 Payload 数组
+    // 1. 组装契合 server.js 规范的批量 Payload 数组
     const payload = taskList.map(task => ({
       filename: task.filename,
       downloadsLocation: [
-        "D:\\Douyin_Downloads",                   // 👈 你的实体硬盘归档根目录
-        "C:\\Users\\Administrator\\Downloads"     // 系统默认下载目录
+        ...downloadsLocation
       ],
-      exts: [".mp4", ".webp", ".jpeg", ".jpg"]
+      exts: [...exts] // 允许兼容检测的后缀
     }));
 
     // 2. 仅发起【一次】HTTP 请求，打包送检
@@ -421,7 +421,7 @@ async function filterExistingFilesByServer(taskList) {
 
     if (response.ok) {
       const serverRes = await response.json();
-      // 你的 server.js 逻辑：result 返回的是所有“不存在（即需要下载）”的项
+      // server.js 逻辑：result 返回的是所有“不存在（即需要下载）”的项
       // 我们通过 filename 将其映射回我们插件内部的 task 对象
       const missingFilenames = new Set((serverRes.result || []).map(r => r.filename));
       
