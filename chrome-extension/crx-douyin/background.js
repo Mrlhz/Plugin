@@ -136,67 +136,39 @@ function showActionBadge(tabId, text, color) {
 // ==========================================
 /**
  * 📥 批量下载入口：完美融入 AsyncQueue、本地磁盘深度扫描
+ * 📥 智能【批量预筛】去重下载入口（基于统一任务架构）
  */
 async function downloadMediaBatch(items) {
-  let rawTasks = []; // 临时存放本次操作拆解出的全量任务
+  let rawTasks = []; // 临时存放本次操作解析出的所有单体文件任务
   let skippedByRegistryAndChrome = 0;
 
   // ==========================================
-  // 步骤一：解析出所有文件的相对路径，并执行前两层轻量校验
+  // 步骤一：通过统一生成器拆解任务，并执行前两层轻量去重
   // ==========================================
   for (const item of items) {
-    let safeNickname = cleanString(item.author?.nickname) || '未知作者';
-    let safeDesc = cleanString(item.desc) || item.aweme_id;
-    const basePath = `Douyin_Grab/${safeNickname}/`;
+    // 👑 不管是视频还是图文，统一化为标准任务数组
+    const tasks = getDownloadTasks(item);
 
-    if (item.type === 'video') {
-      const videoUrl = item.downloadUrl || item.playUrl;
-      if (!videoUrl) continue;
-
-      // const filename = `${basePath}${safeDesc}_${item.aweme_id}.mp4`;
-      const filename = getFileName(item);
-
+    for (const task of tasks) {
       // 【第一层防线】：内存正在下载去重
-      if (downloadRegistry.get(filename) === 'downloading') {
+      if (downloadRegistry.get(task.filename) === 'downloading') {
         skippedByRegistryAndChrome++;
         continue;
       }
       // 【第二层防线】：Chrome 运行时历史记录去重
-      const isChromeExist = await new Promise(r => chrome.downloads.search({ filename, state: 'complete', exists: true }, res => r(res?.length > 0)));
+      const isChromeExist = await new Promise(r => chrome.downloads.search({ filename: task.filename, state: 'complete', exists: true }, res => r(res?.length > 0)));
       if (isChromeExist) {
         skippedByRegistryAndChrome++;
         continue;
       }
 
-      // 通过前两层，视为待检测的候选任务
-      rawTasks.push({ url: videoUrl, filename, conflictAction: 'overwrite', priority: 1 });
-
-    } else if (item.type === 'note' && item.images?.length > 0) {
-      const filenames = getFileName({ ...item });
-      for (let index = 0; index < item.images.length; index++) {
-        const img = item.images[index];
-        if (!img.url) continue;
-
-        // const filename = `${basePath}${safeDesc}_图文_${item.aweme_id}/image_${index + 1}.webp`;
-        const filename = filenames[index];
-
-        if (downloadRegistry.get(filename) === 'downloading') {
-          skippedByRegistryAndChrome++;
-          continue;
-        }
-        const isChromeExist = await new Promise(r => chrome.downloads.search({ filename, state: 'complete', exists: true }, res => r(res?.length > 0)));
-        if (isChromeExist) {
-          skippedByRegistryAndChrome++;
-          continue;
-        }
-
-        rawTasks.push({ url: img.url, filename, conflictAction: 'uniquify', priority: 0 });
-      }
+      // 通过轻量筛选，加入待实体硬盘送检队列
+      rawTasks.push(task);
     }
   }
 
   // ==========================================
-  // 步骤二：👑 一键打包送往 Node.js 服务端进行批量硬核校验
+  // 步骤二：一键打包送往 Node.js 服务端进行批量硬核校验
   // ==========================================
   const totalRawCount = rawTasks.length;
   // 过滤出真正要在硬盘上建立下载的任务
@@ -207,7 +179,7 @@ async function downloadMediaBatch(items) {
   const totalSkipped = skippedByRegistryAndChrome + skippedByServer;
 
   // ==========================================
-  // 步骤三：将经过三层严格筛选后的干净任务，灌入 AsyncQueue 消费
+  // 步骤三：灌入自愈重试 AsyncQueue 队列消费
   // ==========================================
   finalTasksToDownload.forEach(task => {
     pushTaskWithRetry(
@@ -219,10 +191,59 @@ async function downloadMediaBatch(items) {
   console.log(`[🎉 去重完成] 自动过滤了 ${totalSkipped} 个重复文件。`);
 
   // 返回给前端 content.js 用于气泡弹窗统计
+  // 返回给前端用于 Toast 统计
   return { 
     skipped: totalSkipped, 
     pushed: finalTasksToDownload.length 
   };
+}
+
+/**
+ * 📂 统一文件名生成器（一律返回任务数组，支持多文件归档）
+ * @param {Object} aweme - 原始媒体对象
+ * @returns {Array<{url: string, filename: string, conflictAction: string, priority: number}>}
+ */
+function getDownloadTasks(aweme = {}) {
+  const { type, author, desc, aweme_id } = aweme;
+  const safeNickname = cleanString(author?.nickname) || '未知作者';
+  const safeDesc = cleanString(desc) || aweme_id;
+  const basePath = `Douyin_Grab/${safeNickname}/`; // 统一加上根目录前缀
+
+  // 1. 视频类型
+  if (type === 'video') {
+    const videoUrl = aweme.downloadUrl || aweme.playUrl;
+    if (!videoUrl) return [];
+    
+    return [{
+      url: videoUrl,
+      filename: `${basePath}${safeDesc}_${aweme_id}.mp4`,
+      conflictAction: 'overwrite',
+      priority: 1
+    }];
+  }
+
+  // 2. 图文笔记类型
+  if (type === 'note') {
+    const { images } = aweme;
+    if (!images || images.length === 0) return [];
+
+    return images.map((image, index) => {
+      if (!image.url) return null;
+      
+      // 动态精准提取后缀
+      const extMatch = image.url.match(/\.(jpg|jpeg|png|gif|webp|bmp|tiff)(\?|$)/i);
+      const extension = extMatch ? extMatch[1].toLowerCase() : 'webp'; // 建议默认 webp 兼容性更好
+
+      return {
+        url: image.url,
+        filename: `${basePath}${safeDesc}_图文_${aweme_id}/image_${index + 1}.${extension}`,
+        conflictAction: 'uniquify',
+        priority: 0
+      };
+    }).filter(Boolean); // 剔除无效的空图片任务
+  }
+
+  return [];
 }
 
 /**
@@ -436,21 +457,4 @@ function cleanString(str, invalidReplaceWith = '_', dotReplaceWith = '') {
 
   // 5. 截取前255个字符，防止超长报错
   return result.substring(0, 255);
-}
-
-function getFileName(aweme = {}) {
-  const { type, author, desc, aweme_id } = aweme;
-  const safeNickname = cleanString(author?.nickname) || '未知作者';
-  const safeDesc = cleanString(desc) || aweme_id;
-  const basePath = `${safeNickname}/`;
-  if (type === 'video') {
-    return `${basePath}${safeDesc}_${aweme_id}.mp4`;
-  } else if (type === 'note') {
-    const { images } = aweme;
-    return (images || []).map((image, index) => {
-      const extMatch = image.url.match(/\.(jpg|jpeg|png|gif|webp|bmp|tiff)(\?|$)/i);
-      const extension = extMatch ? extMatch[1] : 'jpg';
-      return `${basePath}${safeDesc}_${aweme_id}-${index + 1}.${extension}`;
-    });
-  }
 }
