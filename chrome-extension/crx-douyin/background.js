@@ -156,7 +156,7 @@ async function downloadMediaBatch(items) {
         continue;
       }
       // 【第二层防线】：Chrome 运行时历史记录去重
-      const isChromeExist = await new Promise(r => chrome.downloads.search({ filename: task.filename, state: 'complete', exists: true }, res => r(res?.length > 0)));
+      const isChromeExist = await new Promise(r => chrome.downloads.search({ url: task.url, state: 'complete', exists: true }, res => r(res?.length > 0)));
       if (isChromeExist) {
         skippedByRegistryAndChrome++;
         continue;
@@ -207,7 +207,7 @@ function getDownloadTasks(aweme = {}) {
   const { type, author, desc, aweme_id } = aweme;
   const safeNickname = cleanString(author?.nickname) || '未知作者';
   const safeDesc = cleanString(desc) || aweme_id;
-  const basePath = `Douyin_Grab/${safeNickname}/`; // 统一加上根目录前缀
+  const basePath = `${safeNickname}/`; // 统一加上根目录前缀
 
   // 1. 视频类型
   if (type === 'video') {
@@ -236,7 +236,7 @@ function getDownloadTasks(aweme = {}) {
 
       return {
         url: image.url,
-        filename: `${basePath}${safeDesc}_图文_${aweme_id}/image_${index + 1}.${extension}`,
+        filename: `${basePath}${safeDesc}_${aweme_id}-${index + 1}.${extension}`,
         conflictAction: 'uniquify',
         priority: 0
       };
@@ -247,68 +247,10 @@ function getDownloadTasks(aweme = {}) {
 }
 
 /**
- * 🔍 工业级三层去重检查函数（加入 Node.js 离线实体硬盘检测）
- * @param {string} filename - 预落地的文件名相对路径
- * @param {Object} itemRaw - 原始的媒体项数据（用于传递给服务端）
- * @returns {Promise<string|null>} - 返回 'downloading' | 'completed' | 'server_exists' | null
- */
-async function checkDownloadStatus(filename, itemRaw) {
-  // 【第一层防线】：检查内存队列，判断是否正在下载中
-  if (downloadRegistry.get(filename) === 'downloading') {
-    return 'downloading';
-  }
-
-  // 【第二层防线】：检查 Chrome 原生下载记录（判断当前浏览器内该文件是否完好）
-  const chromeCheck = await new Promise((resolve) => {
-    chrome.downloads.search({ filename, state: 'complete', exists: true }, (res) => {
-      resolve(res && res.length > 0 ? 'completed' : null);
-    });
-  });
-  if (chromeCheck) return chromeCheck;
-
-  // 【第三层防线】：👑 联动调用Node.js 服务检测实体硬盘
-  // 即使重装了浏览器或清理了下载历史，只要硬盘里的文件还在，就能防重！
-  try {
-    const safeNickname = cleanString(itemRaw.author?.nickname, '_', '_') || '未知作者';
-    const safeDesc = cleanString(itemRaw.desc, '_', '_') || itemRaw.aweme_id;
-
-    // 拼装出契合 server.js 的请求 Payload 格式
-    const payload = [{
-      filename: filename, // 传入相对路径
-      downloadsLocation: [
-        ...downloadsLocation
-      ],
-      exts: [...exts]
-    }];
-
-    // 异步发出 POST 请求
-    const response = await fetch(SERVER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    if (response.ok) {
-      const serverRes = await response.json();
-      // server.js 逻辑：返回所有“不存在”的项。
-      // 所以如果返回的 result 数组长度为 0，说明请求的项在硬盘里【已存在】
-      if (serverRes.result && serverRes.result.length === 0) {
-        return 'server_exists'; 
-      }
-    }
-  } catch (err) {
-    // 即使本地 Node 服务没启动，也顺延通过，保证插件降级后基本下载功能依然可用
-    console.warn('[Server Link] 本地检测服务未启动或连接失败，自动跳过硬盘层校验。');
-  }
-
-  return null;
-}
-
-/**
  * 🛟 终极防护版：带状态锁与临门一脚校验的异步队列压入函数
  */
 function pushTaskWithRetry(downloadOptions, currentPriority = 1, attempt = 1) {
-  const { filename } = downloadOptions;
+  const { filename, url } = downloadOptions;
 
   // 【第一道关卡：入库前拦截】
   // 如果当前内存里已经在下载或排队这个文件了，直接物理蒸发，绝不重复入队
@@ -329,7 +271,7 @@ function pushTaskWithRetry(downloadOptions, currentPriority = 1, attempt = 1) {
       // 任务在队列中排队完毕，准备发起网络请求的这一瞬间，再次检索本地硬盘
       // 防止在排队期间，上一个相同的下载任务刚刚好下载完成
       const isFileExistOnDisk = await new Promise((r) => {
-        chrome.downloads.search({ filename, state: 'complete', exists: true }, (res) => {
+        chrome.downloads.search({ url, state: 'complete', exists: true }, (res) => {
           r(res && res.length > 0);
         });
       });
