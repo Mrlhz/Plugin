@@ -437,3 +437,20 @@ function cleanString(str, invalidReplaceWith = '_', dotReplaceWith = '') {
   // 5. 截取前255个字符，防止超长报错
   return result.substring(0, 255);
 }
+
+function getFileName(aweme = {}) {
+  const { type, author, desc, aweme_id } = aweme;
+  const safeNickname = cleanString(author?.nickname) || '未知作者';
+  const safeDesc = cleanString(desc) || aweme_id;
+  const basePath = `${safeNickname}/`;
+  if (type === 'video') {
+    return `${basePath}${safeDesc}_${aweme_id}.mp4`;
+  } else if (type === 'note') {
+    const { images } = aweme;
+    return (images || []).map((image, index) => {
+      const extMatch = image.url.match(/\.(jpg|jpeg|png|gif|webp|bmp|tiff)(\?|$)/i);
+      const extension = extMatch ? extMatch[1] : 'jpg';
+      return `${basePath}${safeDesc}_${aweme_id}-${index + 1}.${extension}`;
+    });
+  }
+}
