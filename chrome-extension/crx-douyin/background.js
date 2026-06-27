@@ -10,8 +10,8 @@ import { downloadsLocation, exts } from './globalConfig.js';
 const downloadRegistry = new Map(); // 存储格式：Map<filename, 'downloading'>
 const SERVER_URL = 'http://localhost:8080/pathExists';
 
-// 1. 全局初始化工业级下载队列（设置并发为 3）
-const downloadQueue = new AsyncQueue(3, {
+// 1. 全局初始化工业级下载队列（设置并发为 5）
+const downloadQueue = new AsyncQueue(5, {
   onStatusChange: (status) => {
     console.log(`[💾 队列状态变动] 正在下载: ${status.activeCount} | 排队中: ${status.waitingCount} | 总数: ${status.totalCount} | 暂停: ${status.isPaused}`);
     
@@ -135,37 +135,6 @@ function showActionBadge(tabId, text, color) {
 // 4. 原生分类目录并发下载层
 // ==========================================
 /**
- * 🧹 工业级可配置路径清洗函数
- * @param {string} str - 待清洗的原始文本（如作者昵称、视频文案）
- * @param {string} [invalidReplaceWith='_'] - 可选：系统违禁符的替换符号，默认 '_'
- * @param {string} [dotReplaceWith=''] - 可选：末尾点号替换符，默认 '' (直接剔除)
- */
-function cleanString(str, invalidReplaceWith = '_', dotReplaceWith = '') {
-  if (!str) return '';
-
-  // 1. 创建动态的违禁符正则
-  const invalidRegex = /[\\/:*?"<>|]/g;
-  
-  // 2. 创建匹配【最末尾所有点号】的正则
-  const trailingDotRegex = /\.+$/g;
-
-  let result = str
-    .replace(/[\r\n\t]/g, ' ')                           // 换行/制表符变空格
-    .replace(invalidRegex, invalidReplaceWith)           // 替换系统路径违禁符
-    .replace(/^\s+|\s+$/g, '');                          // 首尾去空格
-
-  // 3. 核心：根据配置处理末尾点号
-  result = result.replace(trailingDotRegex, dotReplaceWith);
-
-  // 4. 再次收尾去空格，防止剥离或替换点号后暴露出的新尾部带有空格
-  result = result.replace(/^\s+|\s+$/g, '');
-
-  // 5. 截取前30个字符，防止超长报错
-  return result.substring(0, 30);
-}
-
-
-/**
  * 📥 批量下载入口：完美融入 AsyncQueue、本地磁盘深度扫描
  */
 async function downloadMediaBatch(items) {
@@ -184,7 +153,8 @@ async function downloadMediaBatch(items) {
       const videoUrl = item.downloadUrl || item.playUrl;
       if (!videoUrl) continue;
 
-      const filename = `${basePath}${safeDesc}_${item.aweme_id}.mp4`;
+      // const filename = `${basePath}${safeDesc}_${item.aweme_id}.mp4`;
+      const filename = getFileName(item);
 
       // 【第一层防线】：内存正在下载去重
       if (downloadRegistry.get(filename) === 'downloading') {
@@ -202,11 +172,13 @@ async function downloadMediaBatch(items) {
       rawTasks.push({ url: videoUrl, filename, conflictAction: 'overwrite', priority: 1 });
 
     } else if (item.type === 'note' && item.images?.length > 0) {
+      const filenames = getFileName({ ...item });
       for (let index = 0; index < item.images.length; index++) {
         const img = item.images[index];
         if (!img.url) continue;
 
-        const filename = `${basePath}${safeDesc}_图文_${item.aweme_id}/image_${index + 1}.webp`;
+        // const filename = `${basePath}${safeDesc}_图文_${item.aweme_id}/image_${index + 1}.webp`;
+        const filename = filenames[index];
 
         if (downloadRegistry.get(filename) === 'downloading') {
           skippedByRegistryAndChrome++;
@@ -388,7 +360,7 @@ function pushTaskWithRetry(downloadOptions, currentPriority = 1, attempt = 1) {
       } else {
         // 彻底失败，解除锁定
         downloadRegistry.delete(filename);
-        console.error(`[Registry] 任务重试耗尽，已释放锁: ${filename}`);
+        console.log(`[Registry] 任务重试耗尽，已释放锁: ${filename}`, errMsg);
       }
     });
 }
@@ -434,4 +406,34 @@ async function filterExistingFilesByServer(taskList) {
 
   // 如果服务端挂了，降级处理：全量返回不拦截
   return taskList;
+}
+
+/**
+ * 🧹 工业级可配置路径清洗函数
+ * @param {string} str - 待清洗的原始文本（如作者昵称、视频文案）
+ * @param {string} [invalidReplaceWith='_'] - 可选：系统违禁符的替换符号，默认 '_'
+ * @param {string} [dotReplaceWith=''] - 可选：末尾点号替换符，默认 '' (直接剔除)
+ */
+function cleanString(str, invalidReplaceWith = '_', dotReplaceWith = '') {
+  if (!str) return '';
+
+  // 1. 创建动态的违禁符正则
+  const invalidRegex = /[\\/:*?"<>|]/g;
+  
+  // 2. 创建匹配【最末尾所有点号】的正则
+  const trailingDotRegex = /\.+$/g;
+
+  let result = str
+    .replace(/[\r\n\t]/g, ' ')                           // 换行/制表符变空格
+    .replace(invalidRegex, invalidReplaceWith)           // 替换系统路径违禁符
+    .replace(/^\s+|\s+$/g, '');                          // 首尾去空格
+
+  // 3. 核心：根据配置处理末尾点号
+  result = result.replace(trailingDotRegex, dotReplaceWith);
+
+  // 4. 再次收尾去空格，防止剥离或替换点号后暴露出的新尾部带有空格
+  result = result.replace(/^\s+|\s+$/g, '');
+
+  // 5. 截取前255个字符，防止超长报错
+  return result.substring(0, 255);
 }
