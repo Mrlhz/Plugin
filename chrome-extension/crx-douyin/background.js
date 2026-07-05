@@ -156,7 +156,7 @@ async function downloadMediaBatch(items) {
         continue;
       }
       // 【第二层防线】：Chrome 运行时历史记录去重
-      const isChromeExist = await new Promise(r => chrome.downloads.search({ url: task.url, state: 'complete', exists: true }, res => r(res?.length > 0)));
+      const isChromeExist = await isFileExistOnDisk(task);
       if (isChromeExist) {
         skippedByRegistryAndChrome++;
         continue;
@@ -246,6 +246,25 @@ function getDownloadTasks(aweme = {}) {
   return [];
 }
 
+async function isFileExistOnDisk(downloadOptions) {
+  const { url, filename } = downloadOptions;
+  // 1. 检查 Chrome 下载历史记录
+  const isChromeExist = await Promise.all([
+    chrome.downloads.search({ url, state: 'in_progress'}).then(res => res && res.length > 0),
+    chrome.downloads.search({ url, state: 'complete', exists: true }).then(res => res && res.length > 0),
+    // 性能太差，改为只检查文件名尾部匹配
+    // chrome.downloads.search({ query: [filename.split('/').pop()], state: 'complete', exists: true }).then(res => res && res.length > 0),
+    chrome.downloads.search({ state: 'complete', exists: true }).then((items) => {
+      const targetName = filename.split('/').pop();
+      // 在结果中进行严格的尾部匹配（判断文件名是否一致）
+      const isDownloaded = items.some(item => item.filename.endsWith(targetName));
+      return isDownloaded;
+    })
+  ]).then(([inProgressUrlExist, urlExists, filenameExists]) => inProgressUrlExist || urlExists || filenameExists);
+  
+  return isChromeExist;
+}
+
 /**
  * 🛟 终极防护版：带状态锁与临门一脚校验的异步队列压入函数
  */
@@ -270,13 +289,9 @@ function pushTaskWithRetry(downloadOptions, currentPriority = 1, attempt = 1) {
       // 【第二道关卡：出库触发前终审】
       // 任务在队列中排队完毕，准备发起网络请求的这一瞬间，再次检索本地硬盘
       // 防止在排队期间，上一个相同的下载任务刚刚好下载完成
-      const isFileExistOnDisk = await new Promise((r) => {
-        chrome.downloads.search({ url, state: 'complete', exists: true }, (res) => {
-          r(res && res.length > 0);
-        });
-      });
+      const isChromeExist = await isFileExistOnDisk(downloadOptions);
 
-      if (isFileExistOnDisk) {
+      if (isChromeExist) {
         console.log(`[🎯 临门拦截] 排队期间该文件已被前序任务下载完成，取消本次重复请求: ${filename}`);
         // 释放内存锁
         downloadRegistry.delete(filename);
