@@ -11,17 +11,27 @@ const downloadRegistry = new Map(); // 存储格式：Map<filename, 'downloading
 const SERVER_URL = 'http://localhost:8080/pathExists';
 
 // 1. 全局初始化工业级下载队列（设置并发为 5）
-const downloadQueue = new AsyncQueue(5, {
+const downloadQueue = new AsyncQueue({
+  concurrency: 5,
   onStatusChange: (status) => {
-    console.log(`[💾 队列状态变动] 正在下载: ${status.activeCount} | 排队中: ${status.waitingCount} | 总数: ${status.totalCount} | 暂停: ${status.isPaused}`);
+    console.log(`[💾 队列状态变动] 正在下载`, status);
+  }
+});
+
+downloadQueue.on('idle', () => {
+  console.log('[💤 队列空闲] 所有任务已完成，队列完全空闲。');
+  chrome.action.setBadgeText({ text: '' }); // 队列完全空闲时清空角标
+});
+
+downloadQueue.on('statusChange', (status) => {
+  console.log(`[💾 队列状态变动] 正在下载: ${status.activeCount} | 排队中: ${status.waitingCount} | 总数: ${status.totalCount} | 暂停: ${status.isPaused}`);
     
-    // 体验优化：实时在浏览器扩展图标上显示当前“排队+正在下载”的总任务数
-    if (status.totalCount > 0) {
-      chrome.action.setBadgeText({ text: String(status.totalCount) });
-      chrome.action.setBadgeBackgroundColor({ color: status.isPaused ? '#FF9500' : '#007AFF' });
-    } else {
-      chrome.action.setBadgeText({ text: '' }); // 队列全空时清空角标
-    }
+  // 体验优化：实时在浏览器扩展图标上显示当前“排队+正在下载”的总任务数
+  if (status.totalCount > 0) {
+    chrome.action.setBadgeText({ text: String(status.totalCount) });
+    chrome.action.setBadgeBackgroundColor({ color: status.isPaused ? '#FF9500' : '#007AFF' });
+  } else {
+    chrome.action.setBadgeText({ text: '' }); // 队列全空时清空角标
   }
 });
 
@@ -246,6 +256,7 @@ function getDownloadTasks(aweme = {}) {
   return [];
 }
 
+// strictDownloadCheck
 async function isFileExistOnDisk(downloadOptions) {
   const { url, filename } = downloadOptions;
   // 1. 检查 Chrome 下载历史记录
