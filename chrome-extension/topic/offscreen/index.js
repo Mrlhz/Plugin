@@ -17,17 +17,40 @@ import {
  * ============================================================================
  */
 class PageBuilder {
-  constructor(options = {}) {
+  constructor(options = {}, cachedCss = '') {
     this.options = options;
+    // this.userConfig = userConfig;
+    this.cachedCss = cachedCss; // 预加载进内存的 CSS 文本
   }
 
   /**
    * 外部主入口：批量异步处理数据
    */
   static async buildCollection(items = [], options = {}) {
-    const builder = new PageBuilder(options);
+    // 1. 并发读取用户配置与本地超大 CSS 文件 (避免多次读取磁盘，一次读取全局复用)
+    const [localCssText] = await Promise.all([
+      options.allPage ? PageBuilder.loadLocalCss('public/allStyles.css') : Promise.resolve('')
+    ]);
+    
+    // 2. 并行处理所有任务，极大加速多线程转换效率
+    const builder = new PageBuilder(options, localCssText);
     // 使用 Promise.all 并行处理，大幅度提高多文章转换速度
     return Promise.all(items.map(item => builder.buildSinglePage(item)));
+  }
+
+    /**
+   * 异步加载插件本地 CSS 文件的工具函数
+   */
+  static async loadLocalCss(filePath) {
+    try {
+      const url = chrome.runtime.getURL(filePath);
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`HTTP 异常! 状态码: ${response.status}`);
+      return await response.text();
+    } catch (error) {
+      console.warn('预加载本地全量样式表失败，将降级处理:', error);
+      return '';
+    }
   }
 
   /**
@@ -193,9 +216,12 @@ class PageBuilder {
         }
       });
 
+      // 1. 注入匹配成功的小图标动态 Base64 变量
       styles.push(`<style>:root{ ${rootStyles.join(';')} }</style>`);
+      // 2. 注入图片基础定位混合样式
       styles.push(STYLES_ELEMENT);
-      styles.push(STYLES_ALL);
+      // 3. 注入从本地文件异步抽离出来的 超大样式内容
+      this.cachedCss ? styles.push(`<style>${this.cachedCss}</style>`) : styles.push(STYLES_ALL);
     } else {
       styles.push(STYLES_SIMPLE);
     }
@@ -224,10 +250,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // 触发异步处理流
     PageBuilder.buildCollection(result, options)
       .then(processedResult => {
-        chrome.runtime.sendMessage({ 
-          cmd: cmdMap[cmd], 
-          result: processedResult, 
-          options 
+        chrome.runtime.sendMessage({
+          cmd: cmdMap[cmd],
+          result: processedResult,
+          options
         });
       })
       .catch(err => console.warn('页面重构失败:', err));
@@ -236,5 +262,5 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // 关键改动：向发送方同步确认收到。
   // 注意：因为后续的 PageBuilder 是向 background 主动发新消息，这里的 response 仅作“收到收条”使用
   sendResponse({ message: 'Offscreen 已收到任务并开始后台处理。', request });
-  // return false;
+  return false;
 });
