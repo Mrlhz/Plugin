@@ -99,33 +99,6 @@ class BasePlatformStrategy {
   async getDownloadUrls(id) { throw new Error('Must implement'); }
 }
 
-// 2. 针对具体平台进行实现
-// class DouyinStrategy extends BasePlatformStrategy {
-//   parse(raw) {
-//     return {
-//       id: raw.aweme_id,
-//       platform: 'douyin',
-//       title: raw.desc,
-//       mediaType: raw.video ? 'video' : 'image',
-//       urls: [raw.video?.play_addr?.url_list[0]],
-//       raw: raw
-//     };
-//   }
-// }
-
-// class XhsStrategy extends BasePlatformStrategy {
-//   parse(raw) {
-//     return {
-//       id: raw.note_id,
-//       platform: 'xhs',
-//       title: raw.title || raw.desc,
-//       mediaType: raw.type === 'video' ? 'video' : 'image',
-//       urls: raw.imageList?.map(img => img.url) || [],
-//       raw: raw
-//     };
-//   }
-// }
-
 export class BlogStrategy extends BasePlatformStrategy {
   constructor() {
     super();
@@ -144,14 +117,14 @@ export class BlogStrategy extends BasePlatformStrategy {
     // 使用 cleanString 确保文件名安全
     const safeAuthor = cleanString(article.author) || '未知博主';
     let rawTitle = cleanString(article.title) || '未命名文章';
-    
-    // 命名规则: `${title}__${id}`
-    let mixTitle = `${rawTitle}__${itemId}`;
-    // page 命名规则: `_page${page}`
-    if (article.allPage) {
-      mixTitle = `${mixTitle}_page${article.page || 1}`;
-    }
-    const safeTitle = mixTitle.replace(/[\\/:*?"<>|]/g, '_');
+    // 通过数组收集所有命名切片，自动过滤掉 falsy 值
+    const safeTitle = [
+      `${rawTitle}__${itemId}`,                     //      命名规则: `${title}__${id}`
+      article.allPage && `page${article.page || 1}` // page 命名规则: `_page${page}`
+    ]
+    .filter(Boolean)
+    .join('_')
+    .replace(/[\\/:*?"<>|]/g, '_'); // 链式直接替换
 
     const customDir = options.customDir || 'blog';
     // 统一输出目录：blog/博主名
@@ -161,9 +134,7 @@ export class BlogStrategy extends BasePlatformStrategy {
     const context = {
       id: itemId,
       safeTitle,
-      baseDir,
-      htmlBlob: article.htmlBlob, // 供 HtmlProcessor 读取
-      images: article.images || [], // 供 ImageProcessor 读取
+      baseDir
     };
 
     const subTasks = [];
@@ -186,18 +157,3 @@ export class BlogStrategy extends BasePlatformStrategy {
     };
   }
 }
-
-
-// 3. 工厂函数：根据平台返回对应策略实例
-// export function getPlatformStrategy(platform) {
-//   switch (platform) {
-//     case 'douyin':
-//       return new DouyinStrategy();
-//     case 'xhs':
-//       return new XhsStrategy();
-//     case 'blog':
-//       return new BlogStrategy();
-//     default:
-//       throw new Error(`Unsupported platform: ${platform}`);
-//   }
-// }
