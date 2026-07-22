@@ -29,6 +29,15 @@ export function getTopicDetail(options) {
   const space = authorDom?.getAttribute('href') || '';
   const authorLink = space.startsWith('http') ? space : `${window.location.origin}/${space}`;
 
+  const filters = new Set(['back.gif', 'none.gif', 'none.png', 'none.jpg', 'none.jpeg', 'none.webp']);
+  const extractFileName = (urlStr) => {
+    if (typeof urlStr !== 'string') return '';
+    const trimmed = urlStr.trim();
+    if (!trimmed) return '';
+    const pathPart = trimmed.split(/[?#]/)[0]; // 同时去掉 ? 和 #
+    const filename = pathPart.split('/').pop();
+    return filename;
+  }
   const images = [...topicDom?.querySelectorAll('img')]
     .map(image => {
       const src = image.getAttribute('src');
@@ -37,7 +46,13 @@ export function getTopicDetail(options) {
       }
       return src;
     })
-    .filter(src => src.startsWith('http'));
+    .filter(src => {
+      const filename = extractFileName(src);
+      if (filename && filters.has(filename)) {
+        return false;
+      }
+      return src.startsWith('http');
+    });
   
   const topic = allPage ? document.querySelector("#nav").outerHTML + topicDom?.outerHTML : topicDom?.outerHTML;
   // console.log('topic', topic);
