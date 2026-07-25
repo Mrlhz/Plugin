@@ -59,7 +59,7 @@ export class GrabberCoreEngine {
     let initialSkipped = 0;
 
     for (const item of safeItems) {
-      const tasks = generateMediaTasks(item, options);
+      const tasks = typeof generateMediaTasks === 'function' ? generateMediaTasks(item, options) : [];
       for (const task of tasks) {
         // 第一层与第二层：内存与 Chrome 运行时历史记录去重
         if (this.downloadRegistry.get(task.filename) === 'downloading') {
@@ -73,14 +73,28 @@ export class GrabberCoreEngine {
     metrics.totalRequested += (rawTasks.length + initialSkipped);
 
     // 第三层：联动策略模式的 server.js 批量物理送检
-    const finalTasks = await this.filterExistingFilesByServer(rawTasks);
+    let finalTasks = [];
+    try {
+      finalTasks = await this.filterExistingFilesByServer(rawTasks);
+    } catch (serverErr) {
+      console.warn('[BatchDownload] 物理送检失败，降级使用全部原始任务:', serverErr);
+      finalTasks = rawTasks;
+    }
     const serverSkipped = rawTasks.length - finalTasks.length;
     metrics.skippedCount += (initialSkipped + serverSkipped);
 
     // 压入重试内核消费
-    finalTasks.forEach(task => {
-      this.dispatchTask(task);
-    });
+    for (const task of finalTasks) {
+      // 动态二次防御：防止 finalTasks 内部本身存在重复的文件名
+      if (this.downloadRegistry.get(task.filename) === 'downloading') {
+        metrics.skippedCount++;
+        continue;
+      }
+
+      this.dispatchTask(task).catch(err => {
+        console.warn(`[BatchDownload] 任务投递后台严重异常: ${task.filename}`, err);
+      });
+    }
 
     return {
       skipped: initialSkipped + serverSkipped,
@@ -91,65 +105,56 @@ export class GrabberCoreEngine {
   /**
    * 带动态临门一脚 Token 换新、防双击排队的底层分发引擎
    */
-  dispatchTask(taskOptions, attempt = 1) {
+  async dispatchTask(taskOptions, attempt = 1) {
     const { filename, itemId, platform, type, urlCandidates, currentUrlIndex = 0 } = taskOptions;
     const currentActiveUrl = urlCandidates[currentUrlIndex];
 
     this.downloadRegistry.set(filename, 'downloading');
+    const safeCleanRegistry = () => {
+      try {
+        this.downloadRegistry.delete(filename);
+      } catch (e) {
+        console.warn(`[CoreEngine] 清理注册表异常:`, e);
+      }
+    };
 
-    // 符合 AsyncQueue 标准的任务执行函数封装
-    const queueTaskRunner = (context) => {
-      return new Promise(async (resolve, reject) => {
+    try {
+      // 符合 AsyncQueue 标准的任务执行函数封装
+      const queueTaskRunner = async (context) => {
         let targetUrl = currentActiveUrl;
         // 出库前最后一次磁盘校验
         const isExist = await isFileExistOnDisk({ url: targetUrl, filename });
         if (isExist) {
-          metrics.skippedCount++;
-          this.downloadRegistry.delete(filename);
-          return resolve({ status: 'skipped_at_last_moment' });
+          // this.downloadRegistry.delete(filename);
+          return { status: 'skipped_at_last_moment' };
         }
-
-        // 【通用防盗链自愈】：根据当前任务的 platform，动态匹配对应的刷新函数
-        // const needsRefresh = attempt > 1 || currentUrlIndex > 0 || taskOptions.isUrgentRefresh;
-        // const refresher = tokenRefreshers[platform]; 
-        
-        // if (needsRefresh && refresher) {
-        //   try {
-        //     const freshUrls = await refresher(itemId); // 传入统一的 itemId
-        //     if (freshUrls && freshUrls.length > 0) {
-        //       taskOptions.urlCandidates = freshUrls;
-        //       taskOptions.currentUrlIndex = 0;
-        //       targetUrl = freshUrls[0];
-        //       taskOptions.isUrgentRefresh = false;
-        //     }
-        //   } catch (e) {
-        //     console.error(`[CoreEngine] 刷新 ${platform} Token 失败:`, e);
-        //   }
-        // }
 
         const realDownloadRunner = createDownloadTask({
           url: targetUrl,
           filename: filename,
           conflictAction: taskOptions.conflictAction
         });
-      
-        realDownloadRunner(context).then(resolve).catch(reject);
-      });
-    };
 
-    // 塞入外部注入的 AsyncQueue 队列中消费
-    this.queue.push(queueTaskRunner, { timeout: 0, priority: taskOptions.priority })
-      .then((res) => {
-        if (res?.status === 'skipped_at_last_moment') return;
-        metrics.markSuccess(filename);
-        this.downloadRegistry.delete(filename);
+        return realDownloadRunner(context);
+      };
+
+      // 塞入外部注入的 AsyncQueue 队列中消费
+      const res = await this.queue.push(queueTaskRunner, { timeout: 0, priority: taskOptions.priority });
+      safeCleanRegistry();
+      if (res?.status === 'skipped_at_last_moment') {
+        metrics.skippedCount++;
+        return;
+      }
+
+      metrics.markSuccess(filename);
+      this.downloadRegistry.delete(filename);
         
-        // 统一更新本地数据库
-        // updateItemStatus(itemId, 'completed', { download_path: filename }).catch(err => {
-        //   console.log(`[DexieDB] 更新下载状态失败: id=${itemId}, error=${err.message}`);
-        // });
-      })
-      .catch(async (err) => {
+      // 统一更新本地数据库
+      // updateItemStatus(itemId, 'completed', { download_path: filename }).catch(err => {
+      //   console.log(`[DexieDB] 更新下载状态失败: id=${itemId}, error=${err.message}`);
+      // });
+    } catch (err) {
+      try {
         metrics.logError(filename, itemId, err.message);
 
         if (err.message?.includes('cancelled')) {
@@ -162,6 +167,7 @@ export class GrabberCoreEngine {
           metrics.cdnSwitched++;
           this.downloadRegistry.delete(filename);
           this.dispatchTask({ ...taskOptions, currentUrlIndex: currentUrlIndex + 1 }, 1);
+          return;
         }
         // B 决策路径：触网进行 Token 刷新熔断自愈
         // else if (!taskOptions.hasTriedOnlineRefresh && tokenRefreshers[platform]) {
@@ -169,17 +175,25 @@ export class GrabberCoreEngine {
         //   this.dispatchTask({ ...taskOptions, currentUrlIndex: 0, isUrgentRefresh: true, hasTriedOnlineRefresh: true }, 1);
         // }
         // C 决策路径：挂起 5 秒硬重试
-        else if (attempt < 3) {
+        if (attempt < 3) {
           this.downloadRegistry.delete(filename);
-          setTimeout(() => this.dispatchTask(taskOptions, attempt + 1), 5000);
+          setTimeout(() => {
+            try {
+              this.dispatchTask(taskOptions, attempt + 1);
+            } catch (timeoutInnerErr) {
+              console.warn(`[Fatal] 定时器触发递归调度崩溃:`, timeoutInnerErr);
+            }
+          }, 5000);
+          return;
         }
         // D 决策路径：彻底终结，登记负面流水
-        else {
-          this.downloadRegistry.delete(filename);
-          metrics.markFinalFailure(filename);
-          // updateItemStatus(itemId, 'failed', { error: err.message }).catch(() => {});
-        }
-      });
+        metrics.markFinalFailure(filename);
+        // updateItemStatus(itemId, 'failed', { error: err.message }).catch(() => {});
+      } catch (innerCriticalError) {
+        console.warn(`[Fatal Critical] 调度器错误处理控制流自身崩溃! 文件: ${filename}, 错误:`, innerCriticalError);
+        safeCleanRegistry();
+      }
+    }
   }
 }
 
