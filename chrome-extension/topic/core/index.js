@@ -84,6 +84,7 @@ export class GrabberCoreEngine {
     metrics.skippedCount += (initialSkipped + serverSkipped);
 
     // 压入重试内核消费
+    // 💡 改造为 for...of 微观同步平铺抛出，利用事件循环微任务迅速填满队列，完美激活优先级的二分排序
     for (const task of finalTasks) {
       // 动态二次防御：防止 finalTasks 内部本身存在重复的文件名
       if (this.downloadRegistry.get(task.filename) === 'downloading') {
@@ -91,6 +92,7 @@ export class GrabberCoreEngine {
         continue;
       }
 
+      // 后台触发调度，不使用 await 阻塞，让它们瞬间在 AsyncQueue 内部排好队并开始并发消费
       this.dispatchTask(task).catch(err => {
         console.warn(`[BatchDownload] 任务投递后台严重异常: ${task.filename}`, err);
       });
@@ -125,7 +127,6 @@ export class GrabberCoreEngine {
         // 出库前最后一次磁盘校验
         const isExist = await isFileExistOnDisk({ url: targetUrl, filename });
         if (isExist) {
-          // this.downloadRegistry.delete(filename);
           return { status: 'skipped_at_last_moment' };
         }
 
@@ -140,59 +141,60 @@ export class GrabberCoreEngine {
 
       // 塞入外部注入的 AsyncQueue 队列中消费
       const res = await this.queue.push(queueTaskRunner, { timeout: 0, priority: taskOptions.priority });
-      safeCleanRegistry();
+
       if (res?.status === 'skipped_at_last_moment') {
         metrics.skippedCount++;
         return;
       }
 
       metrics.markSuccess(filename);
-      this.downloadRegistry.delete(filename);
         
       // 统一更新本地数据库
       // updateItemStatus(itemId, 'completed', { download_path: filename }).catch(err => {
       //   console.log(`[DexieDB] 更新下载状态失败: id=${itemId}, error=${err.message}`);
       // });
-    } catch (err) {
-      try {
-        metrics.logError(filename, itemId, err.message);
+    } catch (pushErr) {
+      await this.handleTaskFailure(taskOptions, attempt, pushErr);
+    } finally {
+      safeCleanRegistry();
+    }
+  }
 
-        if (err.message?.includes('cancelled')) {
-          this.downloadRegistry.delete(filename);
-          return;
-        }
+  // 剥离出的失败决策器
+  async handleTaskFailure(taskOptions, attempt, err) {
+    const { filename, itemId, urlCandidates, currentUrlIndex = 0 } = taskOptions;
 
-        // A 决策路径：换备用 CDN 弹夹
-        if (currentUrlIndex + 1 < urlCandidates.length) {
-          metrics.cdnSwitched++;
-          this.downloadRegistry.delete(filename);
-          this.dispatchTask({ ...taskOptions, currentUrlIndex: currentUrlIndex + 1 }, 1);
-          return;
-        }
-        // B 决策路径：触网进行 Token 刷新熔断自愈
-        // else if (!taskOptions.hasTriedOnlineRefresh && tokenRefreshers[platform]) {
-        //   this.downloadRegistry.delete(filename);
-        //   this.dispatchTask({ ...taskOptions, currentUrlIndex: 0, isUrgentRefresh: true, hasTriedOnlineRefresh: true }, 1);
-        // }
-        // C 决策路径：挂起 5 秒硬重试
-        if (attempt < 3) {
-          this.downloadRegistry.delete(filename);
-          setTimeout(() => {
-            try {
-              this.dispatchTask(taskOptions, attempt + 1);
-            } catch (timeoutInnerErr) {
-              console.warn(`[Fatal] 定时器触发递归调度崩溃:`, timeoutInnerErr);
-            }
-          }, 5000);
-          return;
-        }
-        // D 决策路径：彻底终结，登记负面流水
-        metrics.markFinalFailure(filename);
-        // updateItemStatus(itemId, 'failed', { error: err.message }).catch(() => {});
-      } catch (innerCriticalError) {
-        console.warn(`[Fatal Critical] 调度器错误处理控制流自身崩溃! 文件: ${filename}, 错误:`, innerCriticalError);
-        safeCleanRegistry();
+    try {
+      metrics.logError(filename, itemId, err.message);
+
+      if (err.message?.includes('cancelled')) {
+        return;
       }
+
+      // A 决策路径：换备用 CDN 弹夹
+      if (currentUrlIndex + 1 < urlCandidates.length) {
+        metrics.cdnSwitched++;
+        return this.dispatchTask({ ...taskOptions, currentUrlIndex: currentUrlIndex + 1 }, 1);
+      }
+      // B 决策路径：触网进行 Token 刷新熔断自愈
+      // else if (!taskOptions.hasTriedOnlineRefresh && tokenRefreshers[platform]) {
+      //   this.dispatchTask({ ...taskOptions, currentUrlIndex: 0, isUrgentRefresh: true, hasTriedOnlineRefresh: true }, 1);
+      // }
+      // C 决策路径：挂起 5 秒硬重试
+      if (attempt < 3) {
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        try {
+          this.dispatchTask(taskOptions, attempt + 1);
+        } catch (timeoutInnerErr) {
+          console.warn(`[Fatal] 定时器触发递归调度崩溃:`, timeoutInnerErr);
+        }
+        return;
+      }
+      // D 决策路径：彻底终结，登记负面流水
+      metrics.markFinalFailure(filename);
+      // updateItemStatus(itemId, 'failed', { error: err.message }).catch(() => {});
+    } catch (innerCriticalError) {
+      console.warn(`[Fatal Critical] 调度器错误处理控制流自身崩溃! 文件: ${filename}, 错误:`, innerCriticalError);
     }
   }
 }
