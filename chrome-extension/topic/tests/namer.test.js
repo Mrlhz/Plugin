@@ -28,8 +28,11 @@ function runTests() {
     assert.strictEqual(parsedData.id, '1024');
     assert.strictEqual(parsedData.authorName, '极客架构师');
     
-    // 2. 验证链式直接替换正则：[\\/:*?"<>|] 被替换为 _
-    const expectedTitle = "深入浅出__ 现代流媒体架构选型_设计___必看___1024";
+    // 2. 验证结合了 cleanString 的真实标题输出
+    // 源码逻辑：
+    // rawTitle = cleanString("深入浅出/ 现代流媒体架构选型*设计|__必看?") -> "深入浅出_ 现代流媒体架构选型_设计___必看_"
+    // safeTitle = [`${rawTitle}__1024`].filter().join('_').replace(...) -> 末尾的 ? 变 _
+    const expectedTitle = "深入浅出_ 现代流媒体架构选型_设计___必看___1024";
     assert.strictEqual(parsedData.title, expectedTitle);
 
     // 3. 验证子任务数量 (1个html + 2个图片 = 3个 subTasks)
@@ -59,10 +62,10 @@ function runTests() {
     // 8. 验证解耦的文件名及结构归一化
     const firstTask = finalTasks[0];
     assert.strictEqual(firstTask.itemId, '1024');
-    assert.strictEqual(firstTask.platform, '91porn');
+    assert.strictEqual(firstTask.platform, 'blog');
     assert.strictEqual(firstTask.conflictAction, 'overwrite');
     assert.strictEqual(typeof firstTask.currentUrlIndex, 'number');
-    assert.strictEqual(firstTask.filename, firstTask.filename); // 完美透传
+    assert.strictEqual(firstTask.filename, htmlTask.filename); // 验证完美透传
 
     console.log('✅ [Case 1] 成功通过！');
   })();
