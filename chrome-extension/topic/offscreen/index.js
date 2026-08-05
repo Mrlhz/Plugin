@@ -194,7 +194,10 @@ class PageBuilder {
         countMap[base] = (countMap[base] || 0) + 1;
       } else if (!DEFAULT_IMAGES.includes(base)) {
         // 普通图片重定向到本地相对路径
-        image.setAttribute('src', `images/${base}`);
+        // image.setAttribute('src', `images/${base}`);
+        // 移除原有的 src 避免报错，或者将其设为安全的空/占位符
+        image.removeAttribute('src'); 
+        image.setAttribute('data-local-src', `images/${base}`);
       }
     });
 
@@ -226,7 +229,9 @@ class PageBuilder {
       styles.push(STYLES_SIMPLE);
     }
 
-    return `<head>${FAVICON_TAG}${styles.join('')}</head><body>${bodyHtml}</body>`;
+    const finalHtml = bodyHtml.replace(/data-local-src=/g, 'src=');
+
+    return `<head>${FAVICON_TAG}${styles.join('')}</head><body>${finalHtml}</body>`;
   }
 }
 
