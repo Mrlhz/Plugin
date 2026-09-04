@@ -1,4 +1,4 @@
-import { getTopicDetail } from './js/dom.js'
+import { injectedParserTask } from './js/dom.js'
 import { setupOffscreenDocument, pathParse, sleep, safeFileName, slug, parseQuery } from './js/utils.js'
 import { getAllWindow, getCurrentTab } from './js/helper.js'
 import { pathExists, notice } from './js/pathExists.js'
@@ -110,6 +110,10 @@ initEngine().then(({ downloadQueue, coreEngine }) => {
     // 根据当前状态更新徽章显示
     updateBadge(status);
   });
+
+  globalThis.__CORE_ENGINE__.queue.on('idle', () => {
+    globalThis.__CORE_ENGINE__.fileCheckProfiler.printReport();
+  });
 });
 
 // 监听插件图标点击事件
@@ -168,7 +172,17 @@ chrome.contextMenus.onClicked.addListener(async function (info, tab) {
     await getTopicList(BACKGROUND_TO_OFFSCREEN)
   }
   if (menuItemId === TOPIC_LIST_SINGLE) {
-    await getTopicList(BACKGROUND_TO_OFFSCREEN__SINGLE)
+    // await getTopicList(BACKGROUND_TO_OFFSCREEN__SINGLE)
+    const tabs = await getAllWindow()
+    const filterTabs = tabs.filter(tab => {
+      const { pathname } = new URL(tab.url)
+      return pathname === '/view_video.php'
+    })
+    const list = await Promise.allSettled(filterTabs.map(tab => getVideoSource(tab)));
+
+    const result = list.filter(item => item.status === 'fulfilled').map(item => item.value[0]);
+    console.log({ result });
+    await Promise.allSettled(result.map(item => downloadVideo(item.result)));
   }
 
 })
@@ -232,7 +246,7 @@ async function getTopicDetails(tabs = [], options = {}) {
   const tasks = tabs.map(tab => {
     const { search } = new URL(tab.url)
     const { tid, page } = parseQuery(search)
-    return chrome.scripting.executeScript({ target: { tabId: tab.id }, func: getTopicDetail, args: [{ tid, page, ...(options || {}) }] })
+    return chrome.scripting.executeScript({ target: { tabId: tab.id }, func: injectedParserTask, args: [{ tid, page, ...(options || {}) }] })
       .then(([{ documentId, frameId, result }]) => result)
   })
 
