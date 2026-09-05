@@ -2,6 +2,7 @@ console.log("🔗 插件 Content Script 已注入...");
 
 // ==========================================
 // 1. 动态注入外部劫持脚本
+// web_accessible_resources.resources 中的 inject.js 会被注入到网页上下文中，劫持 XHR 和 Fetch 请求
 // ==========================================
 try {
   const script = document.createElement('script');
@@ -191,10 +192,16 @@ function cleanRawAweme(raw) {
     return {
       ...baseData,
       images: raw.images.map(img => ({ url: img.url_list?.[0] || '', height: img.height || 0, width: img.width || 0 })),
-      playUrl: '', downloadUrl: '', downloadUrls: [], duration: 0
+      playUrl: '',
+      downloadUrl: '',
+      downloadUrls: [],
+      duration: 0
     };
   } else {
-    const urlList = raw.video?.play_addr?.url_list || [];
+    const playAddr = raw.video?.play_addr || {};
+    const downloadAddr = raw.video?.download_addr || {};
+    // const urlList = raw.video?.play_addr?.url_list || [];
+    const urlList = Array.from(new Set([...(playAddr.url_list || []), ...(downloadAddr.url_list || [])])).filter(Boolean);
     return {
       ...baseData,
       images: [],
