@@ -95,6 +95,21 @@ function injectCustomScript(jsPath) {
       childList: true,
       subtree: true
     });
+
+    // 监听来自网页控制台的 window.postMessage
+    window.addEventListener('message', (event) => {
+      // 过滤掉其他干扰消息，只处理自己的特定类型
+      if (event.source === window && event.data && event.data.type === 'FROM_CONSOLE') {
+        console.log("Content Script 收到控制台消息，准备转发给后台...", event.data.payload);
+
+        // 转发给 Service Worker 后台
+        chrome.runtime.sendMessage({ action: 'to_background', payload: event.data.payload }, (response) => {
+          console.log("收到后台的异步回执：", response);
+        });
+      }
+    });
+    // 示例
+    // window.postMessage({ type: 'FROM_CONSOLE', payload: { data: [], settings: {} } }, '*');
   }
 
   // 确保在正确的生命周期启动

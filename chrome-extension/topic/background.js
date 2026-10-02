@@ -4,7 +4,7 @@ import { getAllWindow, getCurrentTab } from './js/helper.js'
 import { pathExists, notice } from './js/pathExists.js'
 import { setClass } from './js/searchpost.js';
 import { outputSearchpost } from './js/space.js';
-import { getVideoSource, downloadVideo, downloadVideos } from './js/video.js';
+import { getVideoSource, downloadVideo, downloadVideos, videoDownloadQueue } from './js/video.js';
 import { AsyncQueue } from './downloads/AsyncQueue.js';
 import { createDownloadTask } from './downloads/createDownloadTask.js';
 
@@ -211,8 +211,10 @@ chrome.commands.onCommand.addListener(async (command) => {
     const options = { allPage: true }
     await getOneTopic(BACKGROUND_TO_OFFSCREEN__SINGLE, options)
   }
-  if (command === download_ALL_VIDEO) {
-    await downloadVideos()
+  if (command === 'download_ALL_VIDEO') {
+    const allTabs = await chrome.tabs.query({});
+    const tabs = allTabs.filter(tab => tab.url && tab.url.includes('/view_video.php'));
+    await downloadVideos(tabs);
   }
 })
 
@@ -283,7 +285,9 @@ async function setAuthor(data = []) {
 }
 
 
-chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
+chrome.runtime.onMessage.addListener(onMessageHandler);
+
+async function onMessageHandler(request, sender, sendResponse) {
   console.log('消息：', request, sender, sendResponse)
   const { cmd, result, options } = request
 
@@ -296,9 +300,29 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
     handleUnifiedDownloadTask(result, options)
   }
 
+  if (request.action === 'to_background') {
+    console.log("Background 成功收到消息：", request.payload);
+    const { data = [], settings = {} } = request.payload;
+
+    settings.concurrency && videoDownloadQueue.setConcurrency(settings.concurrency);
+
+    const urlsSet = new Set(data || []);
+
+    const allTabs = await chrome.tabs.query({});
+    const tabs = allTabs.filter(tab => tab.url && urlsSet.has(tab.url));
+
+    downloadVideos(tabs).then(() => {
+      console.log("视频下载任务已完成。");
+    });
+    
+    // 回复消息
+    sendResponse({ status: "success", reply: "后台已收到！" });
+    return true; // 保持消息通道开启，支持异步 sendResponse
+  }
+
   sendResponse({ message: '我是后台，已收到你的消息：', request });
   return true; // 🌟 关键：保持消息通道开启，支持异步 sendResponse
-})
+}
 
 /**
  * 🚀 统一的单任务下载处理器
